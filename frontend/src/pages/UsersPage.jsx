@@ -3,6 +3,38 @@ import { api } from '../api/client.js';
 
 const ROLE_LABELS = { admin: 'Админ', tester: 'Тестировщик', developer: 'Скриптолог' };
 
+function PasswordInput({ value, onChange, placeholder, required, visible, onToggle, style }) {
+  return (
+    <div style={{ position: 'relative', ...style }}>
+      <input
+        type={visible ? 'text' : 'password'}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        required={required}
+        style={{ width: '100%', padding: '6px 80px 6px 6px' }}
+      />
+      <button
+        type="button"
+        onClick={onToggle}
+        title={visible ? 'Скрыть пароль' : 'Показать пароль'}
+        style={{
+          position: 'absolute',
+          right: 4,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          background: 'transparent',
+          color: '#6b7280',
+          fontSize: 12,
+          padding: '4px 8px'
+        }}
+      >
+        {visible ? 'Скрыть' : 'Показать'}
+      </button>
+    </div>
+  );
+}
+
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,6 +48,8 @@ export default function UsersPage() {
   const [allProjects, setAllProjects] = useState([]);
   const [manageRoles, setManageRoles] = useState({});
   const [manageSaving, setManageSaving] = useState(false);
+  const [showCreatePass, setShowCreatePass] = useState(false);
+  const [showEditPass, setShowEditPass] = useState(false);
 
   const load = () => {
     api.getUsers()
@@ -31,6 +65,7 @@ export default function UsersPage() {
     try {
       await api.createUser(form);
       setForm({ name: '', email: '', password: '', role: 'tester' });
+      setShowCreatePass(false);
       setShowForm(false);
       load();
     } catch (err) {
@@ -41,6 +76,7 @@ export default function UsersPage() {
   const startEdit = (user) => {
     setEditingId(user.id);
     setEditError('');
+    setShowEditPass(false);
     setEditForm({ name: user.name, email: user.email, role: user.role, password: '' });
   };
 
@@ -114,7 +150,15 @@ export default function UsersPage() {
           {error && <div style={{ color: 'red', marginBottom: 8 }}>{error}</div>}
           <input placeholder="Имя" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required style={{ padding: 6, width: '100%', marginBottom: 8 }} />
           <input placeholder="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required style={{ padding: 6, width: '100%', marginBottom: 8 }} />
-          <input placeholder="Пароль" type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required style={{ padding: 6, width: '100%', marginBottom: 8 }} />
+          <PasswordInput
+            placeholder="Пароль"
+            value={form.password}
+            onChange={e => setForm({ ...form, password: e.target.value })}
+            required
+            visible={showCreatePass}
+            onToggle={() => setShowCreatePass(!showCreatePass)}
+            style={{ marginBottom: 8 }}
+          />
           <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} style={{ padding: 6, width: '100%', marginBottom: 8 }}>
             <option value="tester">Тестировщик</option>
             <option value="developer">Скриптолог</option>
@@ -150,7 +194,14 @@ export default function UsersPage() {
                         <option value="developer">Скриптолог</option>
                         <option value="admin">Админ</option>
                       </select>
-                      <input placeholder="Новый пароль (опционально)" type="password" value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} style={{ padding: 6, flex: 1, minWidth: 180 }} />
+                      <PasswordInput
+                        placeholder="Новый пароль (опционально)"
+                        value={editForm.password}
+                        onChange={e => setEditForm({ ...editForm, password: e.target.value })}
+                        visible={showEditPass}
+                        onToggle={() => setShowEditPass(!showEditPass)}
+                        style={{ flex: 1, minWidth: 200 }}
+                      />
                       <button type="submit" style={{ padding: '6px 16px' }}>Сохранить</button>
                       <button type="button" onClick={() => setEditingId(null)} style={{ padding: '6px 16px', background: '#95a5a6' }}>Отмена</button>
                     </div>
