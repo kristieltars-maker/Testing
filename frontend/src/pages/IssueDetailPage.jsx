@@ -22,7 +22,7 @@ const STATUS_COLORS = {
 };
 
 export default function IssueDetailPage() {
-  const { issueId } = useParams();
+  const { issueId, projectSlug } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [issue, setIssue] = useState(null);
@@ -117,11 +117,17 @@ export default function IssueDetailPage() {
 
   const isAdmin = user.role === 'admin';
 
+  const projectLink = issue.project_slug || projectSlug || issue.project_id;
+
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: 20 }}>
-      <Link to={`/projects/${issue.project_slug || issue.project_id}`} style={{ color: '#3498db' }}>← К замечаниям</Link>
+      <Link to={`/projects/${projectLink}`} style={{ color: '#3498db' }}>← К замечаниям</Link>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, marginTop: 10, flexWrap: 'wrap' }}>
+      <div className="muted" style={{ margin: '10px 0 2px' }}>
+        Проект: <Link to={`/projects/${projectLink}`} style={{ textDecoration: 'none' }}>{issue.project_name || '—'}</Link>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, marginTop: 4, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0 }}>#{issue.local_number}</h2>
         <span style={{
           background: STATUS_COLORS[issue.status],

@@ -165,7 +165,7 @@ export default function IssuesPage() {
           </thead>
           <tbody>
             {issues.map(issue => (
-              <tr key={issue.id} onClick={() => navigate(`/issues/${issue.id}`)}>
+              <tr key={issue.id} onClick={() => navigate(`/projects/${project.slug}/issues/${issue.id}`)}>
                 <td><strong>#{issue.local_number}</strong></td>
                 <td className="preview">{issue.first_message?.slice(0, 80) || '—'}</td>
                 <td>
