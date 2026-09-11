@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { plural } from '../utils/plural.js';
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState([]);
@@ -74,7 +75,7 @@ export default function ProjectsPage() {
                 fontWeight: 600,
                 color: p.open_issues_count > 0 ? '#e74c3c' : '#27ae60'
               }}>
-                {p.open_issues_count} открытых замечаний
+                {p.open_issues_count} {plural(p.open_issues_count, ['открытое замечание', 'открытых замечания', 'открытых замечаний'])}
               </div>
             </Link>
             {user.role === 'admin' && (
