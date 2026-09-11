@@ -60,6 +60,13 @@ export default function IssueDetailPage() {
   useEffect(() => { load(); }, [issueId]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e) => { if (e.key === 'Escape') setLightbox(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox]);
+
   const handleSend = async (statusChange) => {
     if (!text && files.length === 0 && !statusChange) return;
     setSending(true);
@@ -258,7 +265,7 @@ export default function IssueDetailPage() {
                           alt={att.file_name}
                           title={`${att.file_name} — нажмите для увеличения`}
                           style={{ maxWidth: '100%', maxHeight: 420, borderRadius: 8, cursor: 'zoom-in', border: '1px solid #e5e7eb', display: 'block' }}
-                          onClick={() => setLightbox(`/${att.file_path}`)}
+                          onClick={() => setLightbox({ url: `/${att.file_path}`, text: msg.text, author: msg.author_name, created_at: msg.created_at })}
                         />
                       ))}
                     </div>
@@ -355,13 +362,47 @@ export default function IssueDetailPage() {
       {lightbox && (
         <div
           style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', zIndex: 1000, cursor: 'pointer'
+            position: 'fixed', inset: 0,
+            background: 'rgba(0,0,0,0.92)',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, cursor: 'zoom-out',
+            padding: '48px 20px 20px'
           }}
           onClick={() => setLightbox(null)}
         >
-          <img src={lightbox} style={{ maxWidth: '90%', maxHeight: '90%' }} />
+          <button
+            onClick={(e) => { e.stopPropagation(); setLightbox(null); }}
+            title="Закрыть (Esc)"
+            style={{
+              position: 'absolute', top: 12, right: 20,
+              background: 'transparent', color: '#fff', fontSize: 30,
+              lineHeight: 1, padding: '4px 10px'
+            }}
+          >
+            ×
+          </button>
+
+          <img
+            src={lightbox.url}
+            alt={lightbox.text}
+            style={{
+              maxWidth: '95%',
+              maxHeight: lightbox.text ? '76vh' : '90vh',
+              objectFit: 'contain',
+              borderRadius: 6,
+              cursor: 'zoom-out'
+            }}
+          />
+
+          {lightbox.text && (
+            <div style={{ marginTop: 16, color: '#fff', maxWidth: 720, textAlign: 'center' }}>
+              <div style={{ whiteSpace: 'pre-wrap' }}>{lightbox.text}</div>
+              <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, marginTop: 6 }}>
+                {lightbox.author} · {formatDateTime(lightbox.created_at)}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
