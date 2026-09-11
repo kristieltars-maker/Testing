@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
@@ -23,6 +23,8 @@ export default function IssueDetailPage() {
   const [editForm, setEditForm] = useState({ text: '', bot_id: '' });
   const [drag, setDrag] = useState(false);
   const [previews, setPreviews] = useState([]);
+  const [sidebarWidth, setSidebarWidth] = useState(() => Number(localStorage.getItem('issueSidebarWidth')) || 340);
+  const [composerH, setComposerH] = useState(() => Number(localStorage.getItem('issueComposerH')) || 90);
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -32,9 +34,52 @@ export default function IssueDetailPage() {
     return () => urls.forEach(u => URL.revokeObjectURL(u.url));
   }, [files]);
 
+  useEffect(() => { localStorage.setItem('issueSidebarWidth', String(sidebarWidth)); }, [sidebarWidth]);
+  useEffect(() => { localStorage.setItem('issueComposerH', String(composerH)); }, [composerH]);
+
   const addFiles = (list) => {
     const images = Array.from(list).filter(f => f.type.startsWith('image/'));
     if (images.length) setFiles(prev => [...prev, ...images]);
+  };
+
+  const startResizeWidth = (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = sidebarWidth;
+    const onMove = (ev) => {
+      const next = startW + (startX - ev.clientX);
+      setSidebarWidth(Math.max(240, Math.min(640, next)));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  const startResizeHeight = (e) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = composerH;
+    const onMove = (ev) => {
+      const next = startH + (startY - ev.clientY);
+      setComposerH(Math.max(56, Math.min(420, next)));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   };
 
   const load = async () => {
@@ -67,7 +112,7 @@ export default function IssueDetailPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [lightbox]);
 
-  const handleSend = async (statusChange) => {
+  const handleSend = useCallback(async (statusChange) => {
     if (!text && files.length === 0 && !statusChange) return;
     setSending(true);
     const formData = new FormData();
@@ -84,6 +129,13 @@ export default function IssueDetailPage() {
       alert(err.message);
     } finally {
       setSending(false);
+    }
+  }, [text, files, issueId]);
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+      e.preventDefault();
+      handleSend(null);
     }
   };
 
@@ -126,41 +178,29 @@ export default function IssueDetailPage() {
   const history = messages.filter(m => m.is_system);
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: 20 }}>
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+    <div style={{ maxWidth: 1500, margin: '0 auto', padding: '16px 20px' }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', height: 'calc(100vh - 96px)' }}>
 
         {/* Левая колонка: чат + закреплённое поле ввода */}
-        <div style={{ flex: '1 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 110px)' }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <Link to={`/projects/${projectLink}`} style={{ color: '#3498db', fontSize: 14, marginBottom: 8 }}>← К замечаниям</Link>
 
-          <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #eee', borderRadius: 8, padding: 16, background: '#fafafa', marginBottom: 12 }}>
+          <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #eee', borderRadius: 8, padding: 16, background: '#fafafa', marginBottom: 0 }}>
             {chatMessages.map(msg => (
               <div key={msg.id} style={{ marginBottom: 16 }}>
-                <div style={{
-                  display: 'flex',
-                  flexDirection: msg.author_id === user.id ? 'row-reverse' : 'row',
-                  gap: 10
-                }}>
+                <div style={{ display: 'flex', flexDirection: msg.author_id === user.id ? 'row-reverse' : 'row', gap: 10 }}>
                   <div style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: '50%',
+                    width: 36, height: 36, borderRadius: '50%',
                     background: msg.author_role === 'tester' ? '#3498db' : (msg.author_role === 'admin' ? '#8e44ad' : '#27ae60'),
-                    color: '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 14,
-                    fontWeight: 'bold',
-                    flexShrink: 0
+                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 14, fontWeight: 'bold', flexShrink: 0
                   }}>
                     {msg.author_name[0]}
                   </div>
                   <div style={{
                     maxWidth: msg.attachments.length > 0 ? '88%' : '70%',
                     background: msg.author_id === user.id ? '#e8f4fd' : '#f5f5f5',
-                    padding: 10,
-                    borderRadius: 8
+                    padding: 10, borderRadius: 8
                   }}>
                     <div style={{ fontWeight: 'bold', fontSize: 13, marginBottom: 4 }}>{msg.author_name}</div>
                     <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
@@ -178,15 +218,22 @@ export default function IssueDetailPage() {
                         ))}
                       </div>
                     )}
-                    <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>
-                      {formatDateTime(msg.created_at)}
-                    </div>
+                    <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>{formatDateTime(msg.created_at)}</div>
                   </div>
                 </div>
               </div>
             ))}
             {chatMessages.length === 0 && <div className="empty" style={{ padding: 24 }}>Сообщений пока нет</div>}
             <div ref={bottomRef} />
+          </div>
+
+          {/* Ручка изменения высоты поля ввода */}
+          <div
+            onMouseDown={startResizeHeight}
+            title="Потяните, чтобы изменить высоту поля ввода"
+            style={{ height: 10, cursor: 'row-resize', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          >
+            <div style={{ width: 44, height: 4, borderRadius: 2, background: '#d1d5db' }} />
           </div>
 
           <div
@@ -198,6 +245,7 @@ export default function IssueDetailPage() {
               background: drag ? '#eef6fd' : 'transparent',
               borderRadius: 12,
               padding: 4,
+              flexShrink: 0,
               transition: 'background .15s ease, border-color .15s ease'
             }}
           >
@@ -206,12 +254,7 @@ export default function IssueDetailPage() {
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
                   {previews.map((p, i) => (
                     <div key={i} style={{ position: 'relative' }}>
-                      <img
-                        src={p.url}
-                        alt={p.file.name}
-                        title={p.file.name}
-                        style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb' }}
-                      />
+                      <img src={p.url} alt={p.file.name} title={p.file.name} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb' }} />
                       <button
                         type="button"
                         title="Убрать"
@@ -232,10 +275,10 @@ export default function IssueDetailPage() {
               <textarea
                 value={text}
                 onChange={e => setText(e.target.value)}
+                onKeyDown={handleKeyDown}
                 onPaste={e => { if (e.clipboardData?.files?.length) { e.preventDefault(); addFiles(e.clipboardData.files); } }}
-                placeholder={previews.length > 0 ? 'Подпись к изображению...' : 'Написать сообщение...'}
-                rows={previews.length > 0 ? 2 : 3}
-                style={{ width: '100%', padding: 8, border: 'none', outline: 'none', resize: 'vertical', background: 'transparent' }}
+                placeholder={previews.length > 0 ? 'Подпись к изображению...' : 'Написать сообщение... (Enter — отправить, Shift+Enter — новая строка)'}
+                style={{ width: '100%', height: composerH, padding: 8, border: 'none', outline: 'none', resize: 'none', background: 'transparent', overflowY: 'auto' }}
               />
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
@@ -268,8 +311,17 @@ export default function IssueDetailPage() {
           </div>
         </div>
 
+        {/* Ручка изменения ширины чата */}
+        <div
+          onMouseDown={startResizeWidth}
+          title="Потяните, чтобы изменить ширину чата"
+          style={{ width: 10, cursor: 'col-resize', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+        >
+          <div style={{ width: 4, height: 44, borderRadius: 2, background: '#d1d5db' }} />
+        </div>
+
         {/* Правая колонка: информация, статусы, история */}
-        <aside style={{ flex: '0 0 320px', width: 320, maxWidth: '100%' }}>
+        <aside style={{ width: sidebarWidth, flexShrink: 0, overflowY: 'auto' }}>
           <div className="card" style={{ padding: 16, marginBottom: 16 }}>
             <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>
               Проект: <Link to={`/projects/${projectLink}`} style={{ textDecoration: 'none' }}>{issue.project_name || '—'}</Link>
@@ -280,13 +332,8 @@ export default function IssueDetailPage() {
               <span
                 title={STATUS_DESCRIPTIONS[issue.status]}
                 style={{
-                  background: STATUS_COLORS[issue.status],
-                  color: '#fff',
-                  padding: '4px 12px',
-                  borderRadius: 999,
-                  fontWeight: 'bold',
-                  fontSize: 13,
-                  cursor: 'help'
+                  background: STATUS_COLORS[issue.status], color: '#fff',
+                  padding: '4px 12px', borderRadius: 999, fontWeight: 'bold', fontSize: 13, cursor: 'help'
                 }}
               >
                 {STATUS_LABELS[issue.status]}
@@ -354,13 +401,7 @@ export default function IssueDetailPage() {
                     onClick={() => handleSend(status)}
                     disabled={sending}
                     title={`${STATUS_LABELS[status]} — ${STATUS_DESCRIPTIONS[status]}`}
-                    style={{
-                      padding: '8px 14px',
-                      background: STATUS_COLORS[status],
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: 6
-                    }}
+                    style={{ padding: '8px 14px', background: STATUS_COLORS[status], color: '#fff', border: 'none', borderRadius: 6 }}
                   >
                     {STATUS_LABELS[status]}
                   </button>
@@ -387,23 +428,16 @@ export default function IssueDetailPage() {
       {lightbox && (
         <div
           style={{
-            position: 'fixed', inset: 0,
-            background: 'rgba(0,0,0,0.92)',
-            display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center',
-            zIndex: 1000, cursor: 'zoom-out',
-            padding: '48px 20px 20px'
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, cursor: 'zoom-out', padding: '48px 20px 20px'
           }}
           onClick={() => setLightbox(null)}
         >
           <button
             onClick={(e) => { e.stopPropagation(); setLightbox(null); }}
             title="Закрыть (Esc)"
-            style={{
-              position: 'absolute', top: 12, right: 20,
-              background: 'transparent', color: '#fff', fontSize: 30,
-              lineHeight: 1, padding: '4px 10px'
-            }}
+            style={{ position: 'absolute', top: 12, right: 20, background: 'transparent', color: '#fff', fontSize: 30, lineHeight: 1, padding: '4px 10px' }}
           >
             ×
           </button>
@@ -411,13 +445,7 @@ export default function IssueDetailPage() {
           <img
             src={lightbox.url}
             alt={lightbox.text}
-            style={{
-              maxWidth: '95%',
-              maxHeight: lightbox.text ? '76vh' : '90vh',
-              objectFit: 'contain',
-              borderRadius: 6,
-              cursor: 'zoom-out'
-            }}
+            style={{ maxWidth: '95%', maxHeight: lightbox.text ? '76vh' : '90vh', objectFit: 'contain', borderRadius: 6, cursor: 'zoom-out' }}
           />
 
           {lightbox.text && (
