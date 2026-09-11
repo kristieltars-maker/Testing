@@ -33,6 +33,7 @@ export default function IssuesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [filters, setFilters] = useState({ status: '', bot_id: '', created_by: '', assigned_to: '' });
   const [newIssue, setNewIssue] = useState({ bot_id: '', text: '', files: [], assigned_to: '' });
+  const [creating, setCreating] = useState(false);
 
   const load = () => {
     Promise.all([
@@ -48,138 +49,219 @@ export default function IssuesPage() {
 
   useEffect(() => { load(); }, [projectId, filters]);
 
+  const developers = members.filter(m => m.role_in_project === 'developer');
+  const testers = members.filter(m => m.role_in_project === 'tester');
+  const hasFilters = Object.values(filters).some(Boolean);
+
+  const openCreate = () => {
+    setNewIssue({ bot_id: '', text: '', files: [], assigned_to: String(developers[0]?.id || '') });
+    setShowCreate(true);
+  };
+
+  const closeCreate = () => {
+    setShowCreate(false);
+    setNewIssue({ bot_id: '', text: '', files: [], assigned_to: '' });
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
-    const formData = new FormData();
-    formData.append('project_id', projectId);
-    if (newIssue.bot_id) formData.append('bot_id', newIssue.bot_id);
-    if (newIssue.assigned_to) formData.append('assigned_to', newIssue.assigned_to);
-    formData.append('text', newIssue.text);
-    for (const file of newIssue.files) {
-      formData.append('attachments', file);
+    setCreating(true);
+    try {
+      const formData = new FormData();
+      formData.append('project_id', projectId);
+      if (newIssue.bot_id) formData.append('bot_id', newIssue.bot_id);
+      if (newIssue.assigned_to) formData.append('assigned_to', newIssue.assigned_to);
+      formData.append('text', newIssue.text);
+      for (const file of newIssue.files) {
+        formData.append('attachments', file);
+      }
+      await api.createIssue(formData, projectId);
+      closeCreate();
+      load();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCreating(false);
     }
-    await api.createIssue(formData, projectId);
-    setNewIssue({ bot_id: '', text: '', files: [], assigned_to: '' });
-    setShowCreate(false);
-    load();
   };
 
-  const developers = members.filter(m => m.role_in_project === 'developer');
-
-  const toggleCreate = () => {
-    const next = !showCreate;
-    if (next) {
-      setNewIssue(prev => ({ ...prev, assigned_to: prev.assigned_to || String(developers[0]?.id || '') }));
-    }
-    setShowCreate(next);
-  };
-
-  if (loading) return <div>Загрузка...</div>;
-  if (!project) return <div>Проект не найден</div>;
+  if (loading) return <div className="empty">Загрузка...</div>;
+  if (!project) return <div className="empty">Проект не найден</div>;
 
   const canCreate = user.role === 'admin' || (user.role === 'tester' && members.some(m => m.id === user.id && m.role_in_project === 'tester'));
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 20 }}>
-      <Link to="/" style={{ color: '#3498db' }}>← Проекты</Link>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <h1 style={{ margin: '8px 0' }}>{project.name}</h1>
-        {user.role === 'admin' && (
-          <Link to={`/projects/${project.id}/manage`} style={{ color: '#3498db', fontSize: 14 }}>⚙ Управление проектом</Link>
-        )}
-      </div>
-      <div style={{ color: '#666', marginBottom: 16 }}>Заказчик: {project.client_name}</div>
+    <div className="page">
+      <Link to="/" style={{ fontSize: 14, textDecoration: 'none' }}>← Проекты</Link>
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })} style={{ padding: 6 }}>
+      <div className="page-header">
+        <div>
+          <div className="title">{project.name}</div>
+          <div className="muted">Заказчик: {project.client_name}</div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {user.role === 'admin' && (
+            <Link
+              to={`/projects/${project.id}/manage`}
+              style={{
+                fontSize: 14,
+                textDecoration: 'none',
+                color: '#4b5563',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                padding: '8px 14px',
+                background: '#fff'
+              }}
+            >
+              ⚙ Управление проектом
+            </Link>
+          )}
+          {canCreate && (
+            <button onClick={openCreate}>+ Новое замечание</button>
+          )}
+        </div>
+      </div>
+
+      <div className="filters">
+        <select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })}>
           <option value="">Все статусы</option>
           {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         {bots.length > 0 && (
-          <select value={filters.bot_id} onChange={e => setFilters({ ...filters, bot_id: e.target.value })} style={{ padding: 6 }}>
+          <select value={filters.bot_id} onChange={e => setFilters({ ...filters, bot_id: e.target.value })}>
             <option value="">Все боты</option>
             {bots.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         )}
-        <select value={filters.created_by} onChange={e => setFilters({ ...filters, created_by: e.target.value })} style={{ padding: 6 }}>
+        <select value={filters.created_by} onChange={e => setFilters({ ...filters, created_by: e.target.value })}>
           <option value="">Все тестировщики</option>
-          {members.filter(m => m.role_in_project === 'tester').map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          {testers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
-        <select value={filters.assigned_to} onChange={e => setFilters({ ...filters, assigned_to: e.target.value })} style={{ padding: 6 }}>
+        <select value={filters.assigned_to} onChange={e => setFilters({ ...filters, assigned_to: e.target.value })}>
           <option value="">Все скриптологи</option>
-          {members.filter(m => m.role_in_project === 'developer').map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          {developers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
-        {canCreate && (
-          <button onClick={toggleCreate} style={{ padding: '6px 16px', marginLeft: 'auto' }}>
-            + Новое замечание
+        {hasFilters && (
+          <button
+            className="btn-secondary btn-sm"
+            onClick={() => setFilters({ status: '', bot_id: '', created_by: '', assigned_to: '' })}
+          >
+            Сбросить
           </button>
         )}
       </div>
 
-      {showCreate && (
-        <form onSubmit={handleCreate} style={{ marginBottom: 20, padding: 15, border: '1px solid #ccc' }}>
-          <div style={{ marginBottom: 8, fontSize: 13, color: '#666' }}>Автор: {user.name}</div>
-          {bots.length > 0 && (
-            <select value={newIssue.bot_id} onChange={e => setNewIssue({ ...newIssue, bot_id: e.target.value })} style={{ padding: 6, marginBottom: 8, width: '100%' }}>
-              <option value="">Без привязки к боту</option>
-              {bots.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          )}
-          <select value={newIssue.assigned_to} onChange={e => setNewIssue({ ...newIssue, assigned_to: e.target.value })} style={{ padding: 6, marginBottom: 8, width: '100%' }}>
-            <option value="">Ответственный: не назначен</option>
-            {developers.map(d => <option key={d.id} value={d.id}>Ответственный: {d.name}</option>)}
-          </select>
-          <textarea
-            placeholder="Описание замечания..."
-            value={newIssue.text}
-            onChange={e => setNewIssue({ ...newIssue, text: e.target.value })}
-            required
-            rows={4}
-            style={{ width: '100%', padding: 8, marginBottom: 8 }}
-          />
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={e => setNewIssue({ ...newIssue, files: Array.from(e.target.files) })}
-            style={{ marginBottom: 8 }}
-          />
-          <button type="submit" style={{ padding: '6px 16px' }}>Создать замечание</button>
-        </form>
-      )}
-
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-            <th style={{ padding: 8 }}>#</th>
-            <th style={{ padding: 8 }}>Описание</th>
-            <th style={{ padding: 8 }}>Статус</th>
-            <th style={{ padding: 8 }}>Автор</th>
-            <th style={{ padding: 8 }}>Ответственный</th>
-            <th style={{ padding: 8 }}>Обновлено</th>
-          </tr>
-        </thead>
-        <tbody>
-          {issues.map(issue => (
-            <tr key={issue.id} style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }} onClick={() => navigate(`/issues/${issue.id}`)}>
-              <td style={{ padding: 8 }}>#{issue.local_number}</td>
-              <td style={{ padding: 8, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {issue.first_message?.slice(0, 80) || '—'}
-              </td>
-              <td style={{ padding: 8 }}>
-                <span style={{ background: STATUS_COLORS[issue.status], color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>
-                  {STATUS_LABELS[issue.status]}
-                </span>
-              </td>
-              <td style={{ padding: 8 }}>{issue.creator_name}</td>
-              <td style={{ padding: 8 }}>{issue.assignee_name || '—'}</td>
-              <td style={{ padding: 8, fontSize: 13, color: '#666' }}>{new Date(issue.updated_at).toLocaleString('ru-RU')}</td>
+      <div className="card">
+        <table className="issues-table">
+          <thead>
+            <tr>
+              <th style={{ width: 60 }}>#</th>
+              <th>Описание</th>
+              <th>Статус</th>
+              <th>Автор</th>
+              <th>Ответственный</th>
+              <th>Обновлено</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {issues.map(issue => (
+              <tr key={issue.id} onClick={() => navigate(`/issues/${issue.id}`)}>
+                <td><strong>#{issue.local_number}</strong></td>
+                <td className="preview">{issue.first_message?.slice(0, 80) || '—'}</td>
+                <td>
+                  <span className="badge" style={{ background: STATUS_COLORS[issue.status] }}>
+                    {STATUS_LABELS[issue.status]}
+                  </span>
+                </td>
+                <td>{issue.creator_name}</td>
+                <td>{issue.assignee_name || '—'}</td>
+                <td className="muted">{new Date(issue.updated_at).toLocaleString('ru-RU')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {issues.length === 0 && (
+          <div className="empty">
+            {hasFilters ? 'Замечаний по выбранным фильтрам нет' : 'Замечаний пока нет'}
+          </div>
+        )}
+      </div>
 
-      {issues.length === 0 && <div style={{ textAlign: 'center', color: '#999', padding: 40 }}>Нет замечаний</div>}
+      {showCreate && (
+        <div className="modal-overlay" onClick={closeCreate}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ margin: 0 }}>Новое замечание</h2>
+              <button className="modal-close" onClick={closeCreate} aria-label="Закрыть">×</button>
+            </div>
+
+            <form onSubmit={handleCreate}>
+              <div className="form-group">
+                <label>Автор</label>
+                <div className="muted" style={{ padding: '4px 0' }}>{user.name}</div>
+              </div>
+
+              {bots.length > 0 && (
+                <div className="form-group">
+                  <label>Бот</label>
+                  <select
+                    className="form-control"
+                    value={newIssue.bot_id}
+                    onChange={e => setNewIssue({ ...newIssue, bot_id: e.target.value })}
+                  >
+                    <option value="">Без привязки к боту</option>
+                    {bots.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label>Ответственный скриптолог</label>
+                <select
+                  className="form-control"
+                  value={newIssue.assigned_to}
+                  onChange={e => setNewIssue({ ...newIssue, assigned_to: e.target.value })}
+                >
+                  <option value="">Не назначен</option>
+                  {developers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Описание замечания *</label>
+                <textarea
+                  className="form-control"
+                  placeholder="Опишите замечание..."
+                  value={newIssue.text}
+                  onChange={e => setNewIssue({ ...newIssue, text: e.target.value })}
+                  required
+                  rows={5}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Скриншоты</label>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={e => setNewIssue({ ...newIssue, files: Array.from(e.target.files) })}
+                />
+                {newIssue.files.length > 0 && (
+                  <div className="file-hint">Прикреплено файлов: {newIssue.files.length}</div>
+                )}
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn-secondary" onClick={closeCreate}>Отмена</button>
+                <button type="submit" disabled={creating}>
+                  {creating ? 'Создание...' : 'Создать замечание'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

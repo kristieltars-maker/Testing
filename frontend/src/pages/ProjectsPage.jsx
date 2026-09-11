@@ -26,64 +26,62 @@ export default function ProjectsPage() {
     load();
   };
 
-  if (loading) return <div>Загрузка...</div>;
+  if (loading) return <div className="empty">Загрузка...</div>;
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Проекты</h1>
+    <div className="page">
+      <div className="page-header">
+        <div className="title">Проекты</div>
         {user.role === 'admin' && (
-          <button onClick={() => setShowForm(!showForm)} style={{ padding: '8px 16px' }}>
-            + Новый проект
-          </button>
+          <button onClick={() => setShowForm(!showForm)}>+ Новый проект</button>
         )}
       </div>
 
       {showForm && (
-        <form onSubmit={handleCreate} style={{ marginBottom: 20, padding: 15, border: '1px solid #ccc' }}>
-          <div style={{ marginBottom: 8 }}>
-            <input
-              placeholder="Название проекта"
-              value={form.name}
-              onChange={e => setForm({ ...form, name: e.target.value })}
-              required
-              style={{ padding: 6, width: '100%' }}
-            />
+        <form onSubmit={handleCreate} className="card" style={{ padding: 16, marginBottom: 20 }}>
+          <div className="form-group">
+            <label>Название проекта *</label>
+            <input className="form-control" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
           </div>
-          <div style={{ marginBottom: 8 }}>
-            <input
-              placeholder="Заказчик"
-              value={form.client_name}
-              onChange={e => setForm({ ...form, client_name: e.target.value })}
-              required
-              style={{ padding: 6, width: '100%' }}
-            />
+          <div className="form-group">
+            <label>Заказчик *</label>
+            <input className="form-control" value={form.client_name} onChange={e => setForm({ ...form, client_name: e.target.value })} required />
           </div>
-          <div style={{ marginBottom: 8 }}>
-            <input
-              placeholder="Платформа"
-              value={form.platform}
-              onChange={e => setForm({ ...form, platform: e.target.value })}
-              style={{ padding: 6, width: '100%' }}
-            />
+          <div className="form-group">
+            <label>Платформа</label>
+            <input className="form-control" value={form.platform} onChange={e => setForm({ ...form, platform: e.target.value })} />
           </div>
-          <button type="submit" style={{ padding: '6px 16px' }}>Создать</button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="submit">Создать</button>
+            <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Отмена</button>
+          </div>
         </form>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
         {projects.map(p => (
-          <div key={p.id} style={{ border: '1px solid #ddd', borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column' }}>
+          <div
+            key={p.id}
+            className="card"
+            style={{ padding: 18, display: 'flex', flexDirection: 'column', transition: 'box-shadow 0.15s ease' }}
+          >
             <Link to={`/projects/${p.id}`} style={{ textDecoration: 'none', color: 'inherit', flex: 1 }}>
-              <h3 style={{ margin: '0 0 8px' }}>{p.name}</h3>
-              <div style={{ color: '#666', fontSize: 14 }}>Заказчик: {p.client_name}</div>
-              <div style={{ color: '#666', fontSize: 14 }}>Платформа: {p.platform}</div>
-              <div style={{ marginTop: 8, fontWeight: 'bold', color: p.open_issues_count > 0 ? '#e74c3c' : '#27ae60' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{p.name}</div>
+              <div className="muted">Заказчик: {p.client_name}</div>
+              <div className="muted">Платформа: {p.platform}</div>
+              <div style={{
+                marginTop: 12,
+                fontWeight: 600,
+                color: p.open_issues_count > 0 ? '#e74c3c' : '#27ae60'
+              }}>
                 {p.open_issues_count} открытых замечаний
               </div>
             </Link>
             {user.role === 'admin' && (
-              <Link to={`/projects/${p.id}/manage`} style={{ marginTop: 12, fontSize: 13, color: '#3498db' }}>
+              <Link
+                to={`/projects/${p.id}/manage`}
+                style={{ marginTop: 12, fontSize: 13, textDecoration: 'none' }}
+              >
                 ⚙ Управление (боты, участники)
               </Link>
             )}
@@ -91,7 +89,7 @@ export default function ProjectsPage() {
         ))}
       </div>
 
-      {projects.length === 0 && <div style={{ textAlign: 'center', color: '#999' }}>Нет доступных проектов</div>}
+      {projects.length === 0 && <div className="empty">Нет доступных проектов</div>}
     </div>
   );
 }
