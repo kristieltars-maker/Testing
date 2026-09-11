@@ -4,7 +4,6 @@ import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_DESCRIPTIONS } from '../constants/statuses.js';
 import { formatDateTime } from '../utils/datetime.js';
-import ImageDropzone from '../components/ImageDropzone.jsx';
 
 export default function IssueDetailPage() {
   const { issueId, projectSlug } = useParams();
@@ -22,7 +21,21 @@ export default function IssueDetailPage() {
   const [lightbox, setLightbox] = useState(null);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ text: '', bot_id: '' });
+  const [drag, setDrag] = useState(false);
+  const [previews, setPreviews] = useState([]);
   const bottomRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const urls = files.map(f => ({ file: f, url: URL.createObjectURL(f) }));
+    setPreviews(urls);
+    return () => urls.forEach(u => URL.revokeObjectURL(u.url));
+  }, [files]);
+
+  const addFiles = (list) => {
+    const images = Array.from(list).filter(f => f.type.startsWith('image/'));
+    if (images.length) setFiles(prev => [...prev, ...images]);
+  };
 
   const load = async () => {
     try {
@@ -105,7 +118,7 @@ export default function IssueDetailPage() {
   const projectLink = issue.project_slug || projectSlug || issue.project_id;
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: 20 }}>
+    <div style={{ maxWidth: 1000, margin: '0 auto', padding: 20 }}>
       <Link to={`/projects/${projectLink}`} style={{ color: '#3498db' }}>← К замечаниям</Link>
 
       <div className="muted" style={{ margin: '10px 0 2px' }}>
@@ -199,7 +212,7 @@ export default function IssueDetailPage() {
         </div>
       )}
 
-      <div style={{ border: '1px solid #eee', borderRadius: 8, padding: 16, marginBottom: 16, maxHeight: 500, overflowY: 'auto' }}>
+      <div style={{ border: '1px solid #eee', borderRadius: 8, padding: 16, marginBottom: 16, minHeight: 320, maxHeight: '70vh', overflowY: 'auto', background: '#fafafa' }}>
         {messages.map(msg => (
           <div key={msg.id} style={{ marginBottom: 16 }}>
             {msg.is_system ? (
@@ -229,7 +242,7 @@ export default function IssueDetailPage() {
                   {msg.author_name[0]}
                 </div>
                 <div style={{
-                  maxWidth: '70%',
+                  maxWidth: msg.attachments.length > 0 ? '88%' : '70%',
                   background: msg.author_id === user.id ? '#e8f4fd' : '#f5f5f5',
                   padding: 10,
                   borderRadius: 8
@@ -237,14 +250,14 @@ export default function IssueDetailPage() {
                   <div style={{ fontWeight: 'bold', fontSize: 13, marginBottom: 4 }}>{msg.author_name}</div>
                   <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
                   {msg.attachments.length > 0 && (
-                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8, alignItems: 'center' }}>
                       {msg.attachments.map(att => (
                         <img
                           key={att.id}
                           src={`/${att.file_path}`}
                           alt={att.file_name}
-                          title={att.file_name}
-                          style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: '1px solid #e5e7eb' }}
+                          title={`${att.file_name} — нажмите для увеличения`}
+                          style={{ maxWidth: '100%', maxHeight: 420, borderRadius: 8, cursor: 'zoom-in', border: '1px solid #e5e7eb', display: 'block' }}
                           onClick={() => setLightbox(`/${att.file_path}`)}
                         />
                       ))}
@@ -261,29 +274,82 @@ export default function IssueDetailPage() {
         <div ref={bottomRef} />
       </div>
 
-      <div style={{ borderTop: '1px solid #eee', paddingTop: 12 }}>
-        <textarea
-          value={text}
-          onChange={e => setText(e.target.value)}
-          placeholder="Написать сообщение..."
-          rows={3}
-          style={{ width: '100%', padding: 8, marginBottom: 8 }}
-        />
-        <ImageDropzone
-          files={files}
-          onChange={setFiles}
-          compact
-          hint="Перетащите скриншот сюда, вставьте из буфера (Ctrl+V) или нажмите для выбора"
-        />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-          <button
-            onClick={() => handleSend(null)}
-            disabled={sending || (!text && files.length === 0)}
-            style={{ padding: '8px 20px' }}
-          >
-            {sending ? 'Отправка...' : 'Отправить'}
-          </button>
+      <div
+        onDragOver={e => { e.preventDefault(); setDrag(true); }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={e => { e.preventDefault(); setDrag(false); if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files); }}
+        style={{
+          border: `2px dashed ${drag ? '#3498db' : 'transparent'}`,
+          background: drag ? '#eef6fd' : 'transparent',
+          borderRadius: 12,
+          padding: 4,
+          transition: 'background .15s ease, border-color .15s ease'
+        }}
+      >
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
+          {previews.length > 0 && (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+              {previews.map((p, i) => (
+                <div key={i} style={{ position: 'relative' }}>
+                  <img
+                    src={p.url}
+                    alt={p.file.name}
+                    title={p.file.name}
+                    style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb' }}
+                  />
+                  <button
+                    type="button"
+                    title="Убрать"
+                    onClick={() => setFiles(files.filter((_, idx) => idx !== i))}
+                    style={{ position: 'absolute', top: -8, right: -8, width: 22, height: 22, padding: 0, borderRadius: '50%', background: '#e74c3c', lineHeight: '18px', fontSize: 14 }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {previews.length > 0 && (
+            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Подпись</div>
+          )}
+
+          <textarea
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onPaste={e => { if (e.clipboardData?.files?.length) { e.preventDefault(); addFiles(e.clipboardData.files); } }}
+            placeholder={previews.length > 0 ? 'Подпись к изображению...' : 'Написать сообщение...'}
+            rows={previews.length > 0 ? 2 : 3}
+            style={{ width: '100%', padding: 8, border: 'none', outline: 'none', resize: 'vertical', background: 'transparent' }}
+          />
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+            <button
+              type="button"
+              className="btn-secondary btn-sm"
+              title="Прикрепить скриншот (можно перетащить или вставить Ctrl+V)"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              📎 Скриншот
+            </button>
+            <button
+              onClick={() => handleSend(null)}
+              disabled={sending || (!text && files.length === 0)}
+              style={{ padding: '8px 20px' }}
+            >
+              {sending ? 'Отправка...' : 'Отправить'}
+            </button>
+          </div>
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={e => { addFiles(e.target.files); e.target.value = ''; }}
+        />
       </div>
 
       {lightbox && (
