@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api/client.js';
-
-const ROLE_LABELS = { admin: 'Админ', tester: 'Тестировщик', developer: 'Скриптолог' };
+import { ROLE_LABELS, ROLE_OPTIONS } from '../constants/roles.js';
 
 function PasswordInput({ value, onChange, placeholder, required, visible, onToggle, style }) {
   return (
@@ -160,9 +159,7 @@ export default function UsersPage() {
             style={{ marginBottom: 8 }}
           />
           <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} style={{ padding: 6, width: '100%', marginBottom: 4 }}>
-            <option value="tester">Тестировщик</option>
-            <option value="developer">Скриптолог</option>
-            <option value="admin">Админ</option>
+            {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <div className="muted" style={{ marginBottom: 8, fontSize: 12 }}>
             Роль по умолчанию. В каждом проекте роль задаётся отдельно (кнопка «Проекты»): один и тот же пользователь может быть тестировщиком в одном проекте и скриптологом в другом.
@@ -193,9 +190,7 @@ export default function UsersPage() {
                       <input placeholder="Имя" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} required style={{ padding: 6, flex: 1, minWidth: 150 }} />
                       <input placeholder="Email" type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} required style={{ padding: 6, flex: 1, minWidth: 150 }} />
                       <select value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })} style={{ padding: 6 }}>
-                        <option value="tester">Тестировщик</option>
-                        <option value="developer">Скриптолог</option>
-                        <option value="admin">Админ</option>
+                        {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
                       <PasswordInput
                         placeholder="Новый пароль (опционально)"

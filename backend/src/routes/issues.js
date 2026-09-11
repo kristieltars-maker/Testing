@@ -93,6 +93,8 @@ function getOne(result) {
 function checkProjectAccess(projectId, userId, role) {
   if (role === 'admin') return true;
   const db = getDb();
+  const proj = db.exec('SELECT manager_id FROM projects WHERE id = ?', [projectId]);
+  if (proj.length > 0 && proj[0].values.length > 0 && proj[0].values[0][0] === userId) return true;
   const result = db.exec('SELECT * FROM project_members WHERE project_id = ? AND user_id = ?', [projectId, userId]);
   return result.length > 0 && result[0].values.length > 0;
 }

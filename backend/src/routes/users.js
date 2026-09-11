@@ -38,7 +38,7 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'All fields required' });
   }
 
-  if (!['admin', 'tester', 'developer'].includes(role)) {
+  if (!['admin', 'tester', 'developer', 'manager'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }
 
@@ -87,7 +87,7 @@ router.patch('/:id', (req, res) => {
   if (name !== undefined) { updates.push('name = ?'); values.push(name); }
   if (email !== undefined) { updates.push('email = ?'); values.push(email); }
   if (role !== undefined) {
-    if (!['admin', 'tester', 'developer'].includes(role)) {
+    if (!['admin', 'tester', 'developer', 'manager'].includes(role)) {
       return res.status(400).json({ error: 'Invalid role' });
     }
     updates.push('role = ?');

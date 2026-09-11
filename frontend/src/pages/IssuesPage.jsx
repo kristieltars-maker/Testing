@@ -95,6 +95,7 @@ export default function IssuesPage() {
         <div>
           <div className="title">{project.name}</div>
           <div className="muted">Заказчик: {project.client_name}</div>
+          {project.manager_name && <div className="muted">Руководитель проекта: {project.manager_name}</div>}
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           {user.role === 'admin' && (

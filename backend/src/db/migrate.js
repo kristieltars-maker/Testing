@@ -27,7 +27,7 @@ async function migrate() {
       name TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN ('admin', 'tester', 'developer')),
+      role TEXT NOT NULL CHECK(role IN ('admin', 'tester', 'developer', 'manager')),
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -49,6 +49,7 @@ async function migrate() {
       client_name TEXT NOT NULL,
       platform TEXT NOT NULL DEFAULT 'ТВИН',
       slug TEXT,
+      manager_id INTEGER,
       created_by INTEGER NOT NULL REFERENCES users(id),
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -143,6 +144,37 @@ async function migrate() {
   }
 
   db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_slug ON projects(slug)');
+
+  // Миграция: разрешаем роль 'manager' (руководитель проекта).
+  // SQLite не умеет менять CHECK — пересоздаём таблицу users.
+  const usersSqlRes = db.exec("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'");
+  const usersSql = usersSqlRes.length > 0 ? String(usersSqlRes[0].values[0][0]) : '';
+  if (usersSql && !usersSql.includes("'manager'")) {
+    db.run('PRAGMA foreign_keys = OFF');
+    db.run(`
+      CREATE TABLE users_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('admin', 'tester', 'developer', 'manager')),
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
+    db.run(`INSERT INTO users_new (id, name, email, password_hash, role, is_active, created_at)
+            SELECT id, name, email, password_hash, role, is_active, created_at FROM users`);
+    db.run('DROP TABLE users');
+    db.run('ALTER TABLE users_new RENAME TO users');
+    db.run('PRAGMA foreign_keys = ON');
+  }
+
+  // Миграция: поле "руководитель проекта"
+  const projectCols2 = db.exec("PRAGMA table_info('projects')");
+  const hasManager = projectCols2.length > 0 && projectCols2[0].values.some(r => r[1] === 'manager_id');
+  if (!hasManager) {
+    db.run('ALTER TABLE projects ADD COLUMN manager_id INTEGER');
+  }
 
   saveDatabase();
   console.log('Database migrated successfully');

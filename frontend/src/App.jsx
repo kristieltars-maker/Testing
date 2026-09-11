@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
+import { ROLE_LABELS } from './constants/roles.js';
 import LoginPage from './pages/LoginPage.jsx';
 import ProjectsPage from './pages/ProjectsPage.jsx';
 import IssuesPage from './pages/IssuesPage.jsx';
@@ -47,7 +48,9 @@ function Layout({ children }) {
           {user.role === 'admin' && (
             <Link to="/admin/users" style={{ textDecoration: 'none' }}>Пользователи</Link>
           )}
-          <span className="muted">{user.name}{user.role === 'admin' ? ' (админ)' : ''}</span>
+          <span className="muted">
+            {user.name} · {ROLE_LABELS[user.role] || user.role}
+          </span>
           <button className="btn-secondary btn-sm" onClick={handleLogout}>Выход</button>
         </div>
       </nav>

@@ -6,7 +6,7 @@ export default function ProjectManagePage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState(null);
-  const [projectForm, setProjectForm] = useState({ name: '', client_name: '', platform: '' });
+  const [projectForm, setProjectForm] = useState({ name: '', client_name: '', platform: '', manager_id: '' });
   const [bots, setBots] = useState([]);
   const [members, setMembers] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
@@ -24,7 +24,8 @@ export default function ProjectManagePage() {
         setProjectForm({
           name: proj.project.name,
           client_name: proj.project.client_name,
-          platform: proj.project.platform
+          platform: proj.project.platform,
+          manager_id: proj.project.manager_id || ''
         });
         setBots(proj.bots);
         setMembers(proj.members);
@@ -115,6 +116,15 @@ export default function ProjectManagePage() {
           <input placeholder="Название" value={projectForm.name} onChange={e => setProjectForm({ ...projectForm, name: e.target.value })} required style={{ padding: 6, flex: 1, minWidth: 160 }} />
           <input placeholder="Заказчик" value={projectForm.client_name} onChange={e => setProjectForm({ ...projectForm, client_name: e.target.value })} required style={{ padding: 6, flex: 1, minWidth: 160 }} />
           <input placeholder="Платформа" value={projectForm.platform} onChange={e => setProjectForm({ ...projectForm, platform: e.target.value })} style={{ padding: 6, minWidth: 120 }} />
+          <label style={{ fontSize: 13, color: '#6b7280' }}>Руководитель проекта:</label>
+          <select
+            value={projectForm.manager_id || ''}
+            onChange={e => setProjectForm({ ...projectForm, manager_id: e.target.value })}
+            style={{ padding: 6, minWidth: 180 }}
+          >
+            <option value="">— не назначен —</option>
+            {allUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
           <button type="submit" style={{ padding: '6px 16px' }}>Сохранить</button>
         </form>
       </section>

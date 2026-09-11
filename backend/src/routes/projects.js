@@ -42,21 +42,23 @@ router.get('/', (req, res) => {
 
   if (req.user.role === 'admin') {
     result = db.exec(`
-      SELECT p.*, u.name as creator_name,
+      SELECT p.*, u.name as creator_name, m.name as manager_name,
         (SELECT COUNT(*) FROM issues i WHERE i.project_id = p.id AND i.status NOT IN ('done', 'cancelled', 'rejected')) as open_issues_count
       FROM projects p
       LEFT JOIN users u ON u.id = p.created_by
+      LEFT JOIN users m ON m.id = p.manager_id
       ORDER BY p.created_at DESC
     `);
   } else {
     result = db.exec(`
-      SELECT p.*, u.name as creator_name,
+      SELECT p.*, u.name as creator_name, m.name as manager_name,
         (SELECT COUNT(*) FROM issues i WHERE i.project_id = p.id AND i.status NOT IN ('done', 'cancelled', 'rejected')) as open_issues_count
       FROM projects p
       LEFT JOIN users u ON u.id = p.created_by
-      JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ?
+      LEFT JOIN users m ON m.id = p.manager_id
+      WHERE p.manager_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)
       ORDER BY p.created_at DESC
-    `, [req.user.id]);
+    `, [req.user.id, req.user.id]);
   }
 
   res.json({ projects: rowsToObjects(result) });
@@ -71,15 +73,16 @@ router.get('/:id', (req, res) => {
   }
 
   const projectResult = db.exec(`
-    SELECT p.*, u.name as creator_name
+    SELECT p.*, u.name as creator_name, m.name as manager_name
     FROM projects p
     LEFT JOIN users u ON u.id = p.created_by
+    LEFT JOIN users m ON m.id = p.manager_id
     WHERE p.id = ?
   `, [resolved.id]);
 
   const project = getOne(projectResult);
 
-  if (req.user.role !== 'admin') {
+  if (req.user.role !== 'admin' && project.manager_id !== req.user.id) {
     const memberResult = db.exec('SELECT * FROM project_members WHERE project_id = ? AND user_id = ?', [project.id, req.user.id]);
     if (memberResult.length === 0 || memberResult[0].values.length === 0) {
       return res.status(403).json({ error: 'Access denied' });
@@ -103,7 +106,7 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', requireRole('admin'), (req, res) => {
-  const { name, client_name, platform } = req.body;
+  const { name, client_name, platform, manager_id } = req.body;
 
   if (!name || !client_name) {
     return res.status(400).json({ error: 'Name and client_name required' });
@@ -113,8 +116,8 @@ router.post('/', requireRole('admin'), (req, res) => {
   const slug = makeUniqueSlug(db, slugify(name));
 
   db.run(
-    'INSERT INTO projects (name, client_name, platform, created_by, slug) VALUES (?, ?, ?, ?, ?)',
-    [name, client_name, platform || 'ТВИН', req.user.id, slug]
+    'INSERT INTO projects (name, client_name, platform, created_by, slug, manager_id) VALUES (?, ?, ?, ?, ?, ?)',
+    [name, client_name, platform || 'ТВИН', req.user.id, slug, manager_id || null]
   );
 
   const lastId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
@@ -125,7 +128,7 @@ router.post('/', requireRole('admin'), (req, res) => {
 });
 
 router.patch('/:id', requireRole('admin'), (req, res) => {
-  const { name, client_name, platform } = req.body;
+  const { name, client_name, platform, manager_id } = req.body;
 
   const db = getDb();
   const project = resolveProject(req.params.id);
@@ -144,6 +147,7 @@ router.patch('/:id', requireRole('admin'), (req, res) => {
   }
   if (client_name !== undefined) { updates.push('client_name = ?'); values.push(client_name); }
   if (platform !== undefined) { updates.push('platform = ?'); values.push(platform); }
+  if (manager_id !== undefined) { updates.push('manager_id = ?'); values.push(manager_id || null); }
 
   if (updates.length === 0) {
     return res.status(400).json({ error: 'No fields to update' });
