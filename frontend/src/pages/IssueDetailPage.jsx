@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
@@ -21,29 +21,42 @@ const STATUS_COLORS = {
   reopened: '#9b59b6'
 };
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-
 export default function IssueDetailPage() {
   const { issueId } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [issue, setIssue] = useState(null);
   const [messages, setMessages] = useState([]);
   const [transitions, setTransitions] = useState([]);
+  const [developers, setDevelopers] = useState([]);
+  const [bots, setBots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
   const [files, setFiles] = useState([]);
   const [sending, setSending] = useState(false);
   const [lightbox, setLightbox] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ text: '', bot_id: '' });
   const bottomRef = useRef(null);
 
-  const load = () => {
-    api.getIssue(issueId)
-      .then(data => {
-        setIssue(data.issue);
-        setMessages(data.messages);
-        setTransitions(data.available_transitions);
-      })
-      .finally(() => setLoading(false));
+  const load = async () => {
+    try {
+      const data = await api.getIssue(issueId);
+      setIssue(data.issue);
+      setMessages(data.messages);
+      setTransitions(data.available_transitions);
+
+      const proj = await api.getProject(data.issue.project_id);
+      setDevelopers(proj.members.filter(m => m.role_in_project === 'developer'));
+      setBots(proj.bots);
+
+      const first = data.messages.find(m => !m.is_system);
+      setEditForm({ text: first?.text || '', bot_id: data.issue.bot_id || '' });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, [issueId]);
@@ -69,14 +82,46 @@ export default function IssueDetailPage() {
     }
   };
 
+  const handleAssign = async (value) => {
+    try {
+      await api.assignIssue(issueId, value || null);
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleEditSave = async (e) => {
+    e.preventDefault();
+    try {
+      await api.updateIssue(issueId, { text: editForm.text, bot_id: editForm.bot_id || null });
+      setEditing(false);
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`Удалить замечание #${issue.local_number}? Действие необратимо.`)) return;
+    try {
+      await api.deleteIssue(issueId);
+      navigate(`/projects/${issue.project_id}`);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   if (loading) return <div>Загрузка...</div>;
   if (!issue) return <div>Замечание не найдено</div>;
+
+  const isAdmin = user.role === 'admin';
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: 20 }}>
       <Link to={`/projects/${issue.project_id}`} style={{ color: '#3498db' }}>← К замечаниям</Link>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, marginTop: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, marginTop: 10, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0 }}>#{issue.local_number}</h2>
         <span style={{
           background: STATUS_COLORS[issue.status],
@@ -88,7 +133,51 @@ export default function IssueDetailPage() {
           {STATUS_LABELS[issue.status]}
         </span>
         {issue.bot_name && <span style={{ color: '#666' }}>Бот: {issue.bot_name}</span>}
+        <span style={{ color: '#666' }}>Автор: {issue.creator_name}</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          {isAdmin && (
+            <>
+              <button onClick={() => setEditing(!editing)} style={{ padding: '4px 12px', fontSize: 13, background: '#7f8c8d' }}>
+                Редактировать
+              </button>
+              <button onClick={handleDelete} style={{ padding: '4px 12px', fontSize: 13, background: '#c0392b' }}>
+                Удалить
+              </button>
+            </>
+          )}
+        </div>
       </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <label style={{ fontSize: 14, color: '#666' }}>Ответственный скриптолог:</label>
+        <select
+          value={issue.assigned_to || ''}
+          onChange={e => handleAssign(e.target.value)}
+          style={{ padding: 6 }}
+        >
+          <option value="">— не назначен —</option>
+          {developers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+      </div>
+
+      {editing && (
+        <form onSubmit={handleEditSave} style={{ marginBottom: 16, padding: 12, border: '1px solid #ccc', background: '#fafafa' }}>
+          <div style={{ marginBottom: 8, fontSize: 13, color: '#666' }}>Редактирование замечания (admin)</div>
+          <textarea
+            value={editForm.text}
+            onChange={e => setEditForm({ ...editForm, text: e.target.value })}
+            rows={3}
+            style={{ width: '100%', padding: 8, marginBottom: 8 }}
+          />
+          {bots.length > 0 && (
+            <select value={editForm.bot_id} onChange={e => setEditForm({ ...editForm, bot_id: e.target.value })} style={{ padding: 6, marginBottom: 8, width: '100%' }}>
+              <option value="">Без привязки к боту</option>
+              {bots.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          )}
+          <button type="submit" style={{ padding: '6px 16px' }}>Сохранить</button>
+        </form>
+      )}
 
       {transitions.length > 0 && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -129,7 +218,7 @@ export default function IssueDetailPage() {
                   width: 36,
                   height: 36,
                   borderRadius: '50%',
-                  background: msg.author_role === 'tester' ? '#3498db' : '#27ae60',
+                  background: msg.author_role === 'tester' ? '#3498db' : (msg.author_role === 'admin' ? '#8e44ad' : '#27ae60'),
                   color: '#fff',
                   display: 'flex',
                   alignItems: 'center',

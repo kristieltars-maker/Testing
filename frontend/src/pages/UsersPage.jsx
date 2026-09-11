@@ -12,6 +12,10 @@ export default function UsersPage() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', email: '', role: 'tester', password: '' });
   const [editError, setEditError] = useState('');
+  const [manageUser, setManageUser] = useState(null);
+  const [allProjects, setAllProjects] = useState([]);
+  const [manageRoles, setManageRoles] = useState({});
+  const [manageSaving, setManageSaving] = useState(false);
 
   const load = () => {
     api.getUsers()
@@ -62,6 +66,36 @@ export default function UsersPage() {
   const toggleActive = async (user) => {
     await api.updateUser(user.id, { is_active: !user.is_active });
     load();
+  };
+
+  const openManage = async (user) => {
+    setManageUser(user);
+    const [proj, mem] = await Promise.all([
+      api.getProjects(),
+      api.getUserMemberships(user.id)
+    ]);
+    setAllProjects(proj.projects);
+    const roles = {};
+    for (const m of mem.memberships) {
+      roles[m.project_id] = m.role_in_project;
+    }
+    setManageRoles(roles);
+  };
+
+  const saveManage = async () => {
+    setManageSaving(true);
+    try {
+      const memberships = Object.entries(manageRoles)
+        .filter(([, role]) => role)
+        .map(([project_id, role_in_project]) => ({ project_id: Number(project_id), role_in_project }));
+      await api.setUserMemberships(manageUser.id, memberships);
+      setManageUser(null);
+      load();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setManageSaving(false);
+    }
   };
 
   if (loading) return <div>Загрузка...</div>;
@@ -134,8 +168,9 @@ export default function UsersPage() {
                   </span>
                 </td>
                 <td style={{ padding: 8, fontSize: 13 }}>{u.projects || '—'}</td>
-                <td style={{ padding: 8, display: 'flex', gap: 6 }}>
+                <td style={{ padding: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <button onClick={() => startEdit(u)} style={{ padding: '4px 10px', fontSize: 13 }}>Редактировать</button>
+                  <button onClick={() => openManage(u)} style={{ padding: '4px 10px', fontSize: 13, background: '#2980b9' }}>Проекты</button>
                   <button onClick={() => toggleActive(u)} style={{ padding: '4px 10px', fontSize: 13, background: u.is_active ? '#e67e22' : '#27ae60' }}>
                     {u.is_active ? 'Деактивировать' : 'Активировать'}
                   </button>
@@ -145,6 +180,38 @@ export default function UsersPage() {
           ))}
         </tbody>
       </table>
+
+      {manageUser && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', padding: 20, borderRadius: 8, width: 520, maxWidth: '90%', maxHeight: '80%', overflowY: 'auto' }}>
+            <h2>Проекты: {manageUser.name}</h2>
+            <p style={{ color: '#666', fontSize: 14 }}>
+              Отметьте проекты, в которых участвует пользователь, и укажите его роль в каждом.
+            </p>
+            {allProjects.map(p => (
+              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #eee' }}>
+                <span>{p.name} <span style={{ color: '#999', fontSize: 12 }}>({p.client_name})</span></span>
+                <select
+                  value={manageRoles[p.id] || ''}
+                  onChange={e => setManageRoles({ ...manageRoles, [p.id]: e.target.value })}
+                  style={{ padding: 6 }}
+                >
+                  <option value="">Не участвует</option>
+                  <option value="tester">Тестировщик</option>
+                  <option value="developer">Скриптолог</option>
+                </select>
+              </div>
+            ))}
+            {allProjects.length === 0 && <div style={{ color: '#999', padding: 10 }}>Проектов пока нет</div>}
+            <div style={{ marginTop: 20, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setManageUser(null)} style={{ padding: '6px 16px', background: '#95a5a6' }}>Отмена</button>
+              <button onClick={saveManage} disabled={manageSaving} style={{ padding: '6px 16px' }}>
+                {manageSaving ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

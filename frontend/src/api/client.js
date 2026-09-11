@@ -37,6 +37,12 @@ export const api = {
   changePassword: (id, password) =>
     request(`/users/${id}/password`, { method: 'POST', body: JSON.stringify({ password }) }),
 
+  getUserMemberships: (id) =>
+    request(`/users/${id}/memberships`),
+
+  setUserMemberships: (id, memberships) =>
+    request(`/users/${id}/memberships`, { method: 'PUT', body: JSON.stringify({ memberships }) }),
+
   getProjects: () =>
     request('/projects'),
 
@@ -48,6 +54,9 @@ export const api = {
 
   updateProject: (id, data) =>
     request(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  deleteProject: (id) =>
+    request(`/projects/${id}`, { method: 'DELETE' }),
 
   addBot: (projectId, data) =>
     request(`/projects/${projectId}/bots`, { method: 'POST', body: JSON.stringify(data) }),
@@ -95,5 +104,11 @@ export const api = {
     }),
 
   assignIssue: (id, assigned_to) =>
-    request(`/issues/${id}/assign`, { method: 'PATCH', body: JSON.stringify({ assigned_to }) })
+    request(`/issues/${id}/assign`, { method: 'PATCH', body: JSON.stringify({ assigned_to }) }),
+
+  updateIssue: (id, data) =>
+    request(`/issues/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  deleteIssue: (id) =>
+    request(`/issues/${id}`, { method: 'DELETE' })
 };

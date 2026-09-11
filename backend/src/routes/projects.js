@@ -1,6 +1,12 @@
 import { Router } from 'express';
+import { existsSync, rmSync, unlinkSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { getDb, saveDatabase } from '../db/database.js';
 import { requireRole } from '../middleware/auth.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const router = Router();
 
@@ -232,6 +238,50 @@ router.delete('/:id/members/:userId', requireRole('admin'), (req, res) => {
   const db = getDb();
   db.run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [req.params.id, req.params.userId]);
   saveDatabase();
+  res.json({ ok: true });
+});
+
+router.delete('/:id', requireRole('admin'), (req, res) => {
+  const projectId = req.params.id;
+  const db = getDb();
+
+  const project = getOne(db.exec('SELECT * FROM projects WHERE id = ?', [projectId]));
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  const files = db.exec(`
+    SELECT a.file_path FROM issue_attachments a
+    JOIN issue_messages m ON m.id = a.message_id
+    JOIN issues i ON i.id = m.issue_id
+    WHERE i.project_id = ?
+  `, [projectId]);
+  const filePaths = files.length > 0 ? files[0].values.map(r => r[0]) : [];
+
+  db.run('DELETE FROM issue_attachments WHERE message_id IN (SELECT id FROM issue_messages WHERE issue_id IN (SELECT id FROM issues WHERE project_id = ?))', [projectId]);
+  db.run('DELETE FROM issue_messages WHERE issue_id IN (SELECT id FROM issues WHERE project_id = ?)', [projectId]);
+  db.run('DELETE FROM issues WHERE project_id = ?', [projectId]);
+  db.run('DELETE FROM bots WHERE project_id = ?', [projectId]);
+  db.run('DELETE FROM project_members WHERE project_id = ?', [projectId]);
+  db.run('DELETE FROM projects WHERE id = ?', [projectId]);
+  saveDatabase();
+
+  for (const fp of filePaths) {
+    try {
+      const absolute = join(__dirname, '..', fp);
+      if (existsSync(absolute)) unlinkSync(absolute);
+    } catch (e) {
+      console.error('Failed to delete file', fp, e.message);
+    }
+  }
+
+  try {
+    const uploadDir = join(__dirname, '..', 'uploads', String(projectId));
+    if (existsSync(uploadDir)) rmSync(uploadDir, { recursive: true, force: true });
+  } catch (e) {
+    console.error('Failed to delete upload dir', e.message);
+  }
+
   res.json({ ok: true });
 });
 

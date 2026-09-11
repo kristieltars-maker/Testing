@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { mkdirSync, existsSync } from 'fs';
+import { mkdirSync, existsSync, unlinkSync } from 'fs';
 import { join, dirname, extname } from 'path';
 import { fileURLToPath } from 'url';
 import { getDb, saveDatabase } from '../db/database.js';
@@ -77,6 +77,17 @@ function getProjectRole(projectId, userId) {
   const result = db.exec('SELECT role_in_project FROM project_members WHERE project_id = ? AND user_id = ?', [projectId, userId]);
   if (result.length === 0 || result[0].values.length === 0) return null;
   return result[0].values[0][0];
+}
+
+function deleteUploadedFiles(filePaths) {
+  for (const fp of filePaths) {
+    try {
+      const absolute = join(__dirname, '..', fp);
+      if (existsSync(absolute)) unlinkSync(absolute);
+    } catch (e) {
+      console.error('Failed to delete file', fp, e.message);
+    }
+  }
 }
 
 router.get('/', (req, res) => {
@@ -191,7 +202,9 @@ router.get('/:id', (req, res) => {
   }));
 
   let availableTransitions = [];
-  if (req.user.role !== 'admin') {
+  if (req.user.role === 'admin') {
+    availableTransitions = [...new Set([...Object.keys(TESTER_TRANSITIONS), ...Object.keys(DEVELOPER_TRANSITIONS)])];
+  } else {
     const projectRole = getProjectRole(issue.project_id, req.user.id);
     if (projectRole === 'tester') {
       availableTransitions = Object.keys(TESTER_TRANSITIONS);
@@ -304,7 +317,9 @@ router.post('/:id/messages', upload.array('attachments', 10), (req, res) => {
 
   if (status_change) {
     let allowed;
-    if (projectRole === 'tester') {
+    if (req.user.role === 'admin') {
+      allowed = { ...TESTER_TRANSITIONS, ...DEVELOPER_TRANSITIONS };
+    } else if (projectRole === 'tester') {
       allowed = TESTER_TRANSITIONS;
     } else if (projectRole === 'developer') {
       allowed = DEVELOPER_TRANSITIONS;
@@ -374,6 +389,72 @@ router.patch('/:id/assign', requireRole('tester', 'developer', 'admin'), (req, r
 
   const updatedResult = db.exec('SELECT * FROM issues WHERE id = ?', [issueId]);
   res.json({ issue: getOne(updatedResult) });
+});
+
+router.patch('/:id', requireRole('admin'), (req, res) => {
+  const { bot_id, text } = req.body;
+  const issueId = req.params.id;
+
+  const db = getDb();
+  const issue = getOne(db.exec('SELECT * FROM issues WHERE id = ?', [issueId]));
+
+  if (!issue) {
+    return res.status(404).json({ error: 'Issue not found' });
+  }
+
+  if (bot_id !== undefined) {
+    if (bot_id) {
+      const botResult = db.exec('SELECT id FROM bots WHERE id = ? AND project_id = ?', [bot_id, issue.project_id]);
+      if (botResult.length === 0 || botResult[0].values.length === 0) {
+        return res.status(400).json({ error: 'Bot not found in this project' });
+      }
+    }
+    db.run('UPDATE issues SET bot_id = ? WHERE id = ?', [bot_id || null, issueId]);
+  }
+
+  if (text !== undefined && text !== null && String(text).trim() !== '') {
+    const firstMsg = getOne(db.exec(
+      'SELECT id FROM issue_messages WHERE issue_id = ? AND is_system = 0 ORDER BY created_at ASC LIMIT 1',
+      [issueId]
+    ));
+    if (firstMsg) {
+      db.run('UPDATE issue_messages SET text = ? WHERE id = ?', [text, firstMsg.id]);
+    }
+  }
+
+  db.run("UPDATE issues SET updated_at = datetime('now') WHERE id = ?", [issueId]);
+  saveDatabase();
+
+  const updatedResult = db.exec('SELECT * FROM issues WHERE id = ?', [issueId]);
+  res.json({ issue: getOne(updatedResult) });
+});
+
+router.delete('/:id', requireRole('admin'), (req, res) => {
+  const issueId = req.params.id;
+
+  const db = getDb();
+  const issue = getOne(db.exec('SELECT * FROM issues WHERE id = ?', [issueId]));
+
+  if (!issue) {
+    return res.status(404).json({ error: 'Issue not found' });
+  }
+
+  const files = db.exec(`
+    SELECT a.file_path FROM issue_attachments a
+    JOIN issue_messages m ON m.id = a.message_id
+    WHERE m.issue_id = ?
+  `, [issueId]);
+
+  const filePaths = files.length > 0 ? files[0].values.map(r => r[0]) : [];
+
+  db.run('DELETE FROM issue_attachments WHERE message_id IN (SELECT id FROM issue_messages WHERE issue_id = ?)', [issueId]);
+  db.run('DELETE FROM issue_messages WHERE issue_id = ?', [issueId]);
+  db.run('DELETE FROM issues WHERE id = ?', [issueId]);
+  saveDatabase();
+
+  deleteUploadedFiles(filePaths);
+
+  res.json({ ok: true });
 });
 
 export default router;

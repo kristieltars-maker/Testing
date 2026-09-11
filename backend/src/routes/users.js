@@ -110,4 +110,43 @@ router.post('/:id/password', (req, res) => {
   res.json({ ok: true });
 });
 
+router.get('/:id/memberships', (req, res) => {
+  const db = getDb();
+  const result = db.exec(`
+    SELECT pm.project_id, pm.role_in_project, p.name as project_name
+    FROM project_members pm
+    JOIN projects p ON p.id = pm.project_id
+    WHERE pm.user_id = ?
+    ORDER BY p.name
+  `, [req.params.id]);
+  res.json({ memberships: rowsToObjects(result) });
+});
+
+router.put('/:id/memberships', (req, res) => {
+  const { memberships } = req.body;
+
+  if (!Array.isArray(memberships)) {
+    return res.status(400).json({ error: 'memberships must be an array' });
+  }
+
+  const db = getDb();
+  const existing = db.exec('SELECT id FROM users WHERE id = ?', [req.params.id]);
+  if (existing.length === 0 || existing[0].values.length === 0) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  db.run('DELETE FROM project_members WHERE user_id = ?', [req.params.id]);
+
+  for (const m of memberships) {
+    if (!m.project_id || !['tester', 'developer'].includes(m.role_in_project)) continue;
+    db.run(
+      'INSERT OR REPLACE INTO project_members (project_id, user_id, role_in_project) VALUES (?, ?, ?)',
+      [m.project_id, req.params.id, m.role_in_project]
+    );
+  }
+
+  saveDatabase();
+  res.json({ ok: true });
+});
+
 export default router;
