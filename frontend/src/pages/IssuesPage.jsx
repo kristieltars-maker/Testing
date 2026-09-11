@@ -2,24 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
-
-const STATUS_LABELS = {
-  new: 'Новое',
-  waiting: 'В ожидании',
-  done: 'Выполнено',
-  cancelled: 'Отменено',
-  rejected: 'Не принято',
-  reopened: 'Вернули в работу'
-};
-
-const STATUS_COLORS = {
-  new: '#3498db',
-  waiting: '#f39c12',
-  done: '#27ae60',
-  cancelled: '#95a5a6',
-  rejected: '#e74c3c',
-  reopened: '#9b59b6'
-};
+import { STATUS_LABELS, STATUS_COLORS, STATUS_DESCRIPTIONS, STATUS_ORDER } from '../constants/statuses.js';
 
 export default function IssuesPage() {
   const { projectId } = useParams();
@@ -123,9 +106,11 @@ export default function IssuesPage() {
       </div>
 
       <div className="filters">
-        <select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })}>
+        <select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })} title="Фильтр по статусу замечания">
           <option value="">Все статусы</option>
-          {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          {STATUS_ORDER.map(k => (
+            <option key={k} value={k} title={STATUS_DESCRIPTIONS[k]}>{STATUS_LABELS[k]}</option>
+          ))}
         </select>
         {bots.length > 0 && (
           <select value={filters.bot_id} onChange={e => setFilters({ ...filters, bot_id: e.target.value })}>
@@ -169,7 +154,11 @@ export default function IssuesPage() {
                 <td><strong>#{issue.local_number}</strong></td>
                 <td className="preview">{issue.first_message?.slice(0, 80) || '—'}</td>
                 <td>
-                  <span className="badge" style={{ background: STATUS_COLORS[issue.status] }}>
+                  <span
+                    className="badge"
+                    style={{ background: STATUS_COLORS[issue.status], cursor: 'help' }}
+                    title={STATUS_DESCRIPTIONS[issue.status]}
+                  >
                     {STATUS_LABELS[issue.status]}
                   </span>
                 </td>
@@ -199,6 +188,15 @@ export default function IssuesPage() {
               <div className="form-group">
                 <label>Автор</label>
                 <div className="muted" style={{ padding: '4px 0' }}>{user.name}</div>
+              </div>
+
+              <div className="form-group">
+                <label>Статус после создания</label>
+                <div style={{ padding: '2px 0' }}>
+                  <span className="badge" style={{ background: STATUS_COLORS.new, cursor: 'help' }} title={STATUS_DESCRIPTIONS.new}>
+                    {STATUS_LABELS.new}
+                  </span>
+                </div>
               </div>
 
               {bots.length > 0 && (

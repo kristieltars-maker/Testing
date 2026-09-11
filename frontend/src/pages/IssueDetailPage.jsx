@@ -2,24 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
-
-const STATUS_LABELS = {
-  new: 'Новое',
-  waiting: 'В ожидании',
-  done: 'Выполнено',
-  cancelled: 'Отменено',
-  rejected: 'Не принято',
-  reopened: 'Вернули в работу'
-};
-
-const STATUS_COLORS = {
-  new: '#3498db',
-  waiting: '#f39c12',
-  done: '#27ae60',
-  cancelled: '#95a5a6',
-  rejected: '#e74c3c',
-  reopened: '#9b59b6'
-};
+import { STATUS_LABELS, STATUS_COLORS, STATUS_DESCRIPTIONS } from '../constants/statuses.js';
 
 export default function IssueDetailPage() {
   const { issueId, projectSlug } = useParams();
@@ -129,13 +112,17 @@ export default function IssueDetailPage() {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, marginTop: 4, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0 }}>#{issue.local_number}</h2>
-        <span style={{
-          background: STATUS_COLORS[issue.status],
-          color: '#fff',
-          padding: '4px 12px',
-          borderRadius: 4,
-          fontWeight: 'bold'
-        }}>
+        <span
+          title={STATUS_DESCRIPTIONS[issue.status]}
+          style={{
+            background: STATUS_COLORS[issue.status],
+            color: '#fff',
+            padding: '4px 12px',
+            borderRadius: 999,
+            fontWeight: 'bold',
+            cursor: 'help'
+          }}
+        >
           {STATUS_LABELS[issue.status]}
         </span>
         {issue.bot_name && <span style={{ color: '#666' }}>Бот: {issue.bot_name}</span>}
@@ -186,24 +173,27 @@ export default function IssueDetailPage() {
       )}
 
       {transitions.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-          {transitions.map(status => (
-            <button
-              key={status}
-              onClick={() => handleSend(status)}
-              disabled={sending}
-              style={{
-                padding: '6px 14px',
-                background: STATUS_COLORS[status],
-                color: '#fff',
-                border: 'none',
-                borderRadius: 4,
-                cursor: 'pointer'
-              }}
-            >
-              {STATUS_LABELS[status]}
-            </button>
-          ))}
+        <div style={{ marginBottom: 16 }}>
+          <div className="muted" style={{ marginBottom: 6 }}>Сменить статус (наведите, чтобы увидеть пояснение):</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {transitions.map(status => (
+              <button
+                key={status}
+                onClick={() => handleSend(status)}
+                disabled={sending}
+                title={`${STATUS_LABELS[status]} — ${STATUS_DESCRIPTIONS[status]}`}
+                style={{
+                  padding: '6px 14px',
+                  background: STATUS_COLORS[status],
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 6
+                }}
+              >
+                {STATUS_LABELS[status]}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
