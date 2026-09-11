@@ -65,7 +65,7 @@ export default function ProjectsPage() {
             className="card"
             style={{ padding: 18, display: 'flex', flexDirection: 'column', transition: 'box-shadow 0.15s ease' }}
           >
-            <Link to={`/projects/${p.id}`} style={{ textDecoration: 'none', color: 'inherit', flex: 1 }}>
+            <Link to={`/projects/${p.slug}`} style={{ textDecoration: 'none', color: 'inherit', flex: 1 }}>
               <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{p.name}</div>
               <div className="muted">Заказчик: {p.client_name}</div>
               <div className="muted">Платформа: {p.platform}</div>
@@ -79,7 +79,7 @@ export default function ProjectsPage() {
             </Link>
             {user.role === 'admin' && (
               <Link
-                to={`/projects/${p.id}/manage`}
+                to={`/projects/${p.slug}/manage`}
                 style={{ marginTop: 12, fontSize: 13, textDecoration: 'none' }}
               >
                 ⚙ Управление (боты, участники)

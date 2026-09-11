@@ -102,7 +102,7 @@ export default function IssuesPage() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           {user.role === 'admin' && (
             <Link
-              to={`/projects/${project.id}/manage`}
+              to={`/projects/${project.slug}/manage`}
               style={{
                 fontSize: 14,
                 textDecoration: 'none',

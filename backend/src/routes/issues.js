@@ -16,7 +16,17 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = join(__dirname, '..', 'uploads', String(req.body.project_id || 'temp'));
+    let pid = req.body.project_id;
+    try {
+      const db = getDb();
+      if (pid && !/^\d+$/.test(String(pid))) {
+        const r = db.exec('SELECT id FROM projects WHERE slug = ?', [pid]);
+        if (r.length > 0 && r[0].values.length > 0) pid = r[0].values[0][0];
+      }
+    } catch (e) {
+      // ignore
+    }
+    const dir = join(__dirname, '..', 'uploads', String(pid || 'temp'));
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
@@ -90,6 +100,14 @@ function deleteUploadedFiles(filePaths) {
   }
 }
 
+function resolveProjectId(identifier) {
+  if (identifier === undefined || identifier === null || identifier === '') return null;
+  const db = getDb();
+  if (/^\d+$/.test(String(identifier))) return Number(identifier);
+  const result = db.exec('SELECT id FROM projects WHERE slug = ?', [identifier]);
+  return result.length > 0 && result[0].values.length > 0 ? result[0].values[0][0] : null;
+}
+
 router.get('/', (req, res) => {
   const { project_id, status, created_by, assigned_to, bot_id, sort_by, sort_order } = req.query;
 
@@ -97,7 +115,12 @@ router.get('/', (req, res) => {
     return res.status(400).json({ error: 'project_id required' });
   }
 
-  if (!checkProjectAccess(project_id, req.user.id, req.user.role)) {
+  const resolvedProjectId = resolveProjectId(project_id);
+  if (!resolvedProjectId) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  if (!checkProjectAccess(resolvedProjectId, req.user.id, req.user.role)) {
     return res.status(403).json({ error: 'Access denied' });
   }
 
@@ -114,7 +137,7 @@ router.get('/', (req, res) => {
     LEFT JOIN bots b ON b.id = i.bot_id
     WHERE i.project_id = ?
   `;
-  const params = [project_id];
+  const params = [resolvedProjectId];
 
   if (status) {
     const statuses = status.split(',');
@@ -153,7 +176,8 @@ router.get('/:id', (req, res) => {
       creator.name as creator_name,
       assignee.name as assignee_name,
       b.name as bot_name,
-      p.name as project_name
+      p.name as project_name,
+      p.slug as project_slug
     FROM issues i
     LEFT JOIN users creator ON creator.id = i.created_by
     LEFT JOIN users assignee ON assignee.id = i.assigned_to
@@ -227,38 +251,39 @@ router.post('/', requireRole('tester', 'admin'), upload.array('attachments', 10)
     return res.status(400).json({ error: 'project_id and text required' });
   }
 
+  const resolvedProjectId = resolveProjectId(project_id);
+  if (!resolvedProjectId) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
   if (req.user.role !== 'admin') {
-    const projectRole = getProjectRole(project_id, req.user.id);
+    const projectRole = getProjectRole(resolvedProjectId, req.user.id);
     if (projectRole !== 'tester') {
       return res.status(403).json({ error: 'Only testers can create issues' });
     }
   }
 
   const db = getDb();
-  const projectResult = db.exec('SELECT id FROM projects WHERE id = ?', [project_id]);
-  if (projectResult.length === 0 || projectResult[0].values.length === 0) {
-    return res.status(404).json({ error: 'Project not found' });
-  }
 
   if (assigned_to) {
     const devResult = db.exec(`
       SELECT u.id FROM users u
       JOIN project_members pm ON pm.user_id = u.id AND pm.project_id = ?
       WHERE u.id = ? AND pm.role_in_project = 'developer'
-    `, [project_id, assigned_to]);
+    `, [resolvedProjectId, assigned_to]);
 
     if (devResult.length === 0 || devResult[0].values.length === 0) {
       return res.status(400).json({ error: 'assigned_to must be a developer in this project' });
     }
   }
 
-  const maxNumResult = db.exec('SELECT MAX(local_number) as max_num FROM issues WHERE project_id = ?', [project_id]);
+  const maxNumResult = db.exec('SELECT MAX(local_number) as max_num FROM issues WHERE project_id = ?', [resolvedProjectId]);
   const maxNum = (maxNumResult.length > 0 && maxNumResult[0].values.length > 0 && maxNumResult[0].values[0][0]) || 0;
   const local_number = maxNum + 1;
 
   db.run(
     "INSERT INTO issues (project_id, bot_id, local_number, status, created_by, assigned_to) VALUES (?, ?, ?, 'new', ?, ?)",
-    [project_id, bot_id || null, local_number, req.user.id, assigned_to || null]
+    [resolvedProjectId, bot_id || null, local_number, req.user.id, assigned_to || null]
   );
 
   const issueId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
@@ -272,7 +297,7 @@ router.post('/', requireRole('tester', 'admin'), upload.array('attachments', 10)
 
   if (req.files && req.files.length > 0) {
     for (const file of req.files) {
-      const relativePath = `uploads/${project_id}/${file.filename}`;
+      const relativePath = `uploads/${resolvedProjectId}/${file.filename}`;
       db.run(
         'INSERT INTO issue_attachments (message_id, file_path, file_name) VALUES (?, ?, ?)',
         [messageId, relativePath, file.originalname]

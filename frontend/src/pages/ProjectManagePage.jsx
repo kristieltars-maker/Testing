@@ -39,8 +39,11 @@ export default function ProjectManagePage() {
     e.preventDefault();
     setError('');
     try {
-      await api.updateProject(projectId, projectForm);
+      const res = await api.updateProject(projectId, projectForm);
       alert('Проект сохранён');
+      if (res.project.slug && res.project.slug !== projectId) {
+        navigate(`/projects/${res.project.slug}/manage`, { replace: true });
+      }
     } catch (err) {
       setError(err.message);
     }

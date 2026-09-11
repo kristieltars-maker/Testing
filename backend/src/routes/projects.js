@@ -4,6 +4,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getDb, saveDatabase } from '../db/database.js';
 import { requireRole } from '../middleware/auth.js';
+import { slugify, makeUniqueSlug } from '../utils/slug.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -23,6 +24,16 @@ function rowsToObjects(result) {
 function getOne(result) {
   const rows = rowsToObjects(result);
   return rows.length > 0 ? rows[0] : null;
+}
+
+function resolveProject(identifier) {
+  if (identifier === undefined || identifier === null || identifier === '') return null;
+  const db = getDb();
+  const isNumeric = /^\d+$/.test(String(identifier));
+  const result = isNumeric
+    ? db.exec('SELECT * FROM projects WHERE id = ?', [identifier])
+    : db.exec('SELECT * FROM projects WHERE slug = ?', [identifier]);
+  return getOne(result);
 }
 
 router.get('/', (req, res) => {
@@ -53,17 +64,20 @@ router.get('/', (req, res) => {
 
 router.get('/:id', (req, res) => {
   const db = getDb();
+  const resolved = resolveProject(req.params.id);
+
+  if (!resolved) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
   const projectResult = db.exec(`
     SELECT p.*, u.name as creator_name
     FROM projects p
     LEFT JOIN users u ON u.id = p.created_by
     WHERE p.id = ?
-  `, [req.params.id]);
+  `, [resolved.id]);
 
   const project = getOne(projectResult);
-  if (!project) {
-    return res.status(404).json({ error: 'Project not found' });
-  }
 
   if (req.user.role !== 'admin') {
     const memberResult = db.exec('SELECT * FROM project_members WHERE project_id = ? AND user_id = ?', [project.id, req.user.id]);
@@ -96,31 +110,38 @@ router.post('/', requireRole('admin'), (req, res) => {
   }
 
   const db = getDb();
+  const slug = makeUniqueSlug(db, slugify(name));
+
   db.run(
-    'INSERT INTO projects (name, client_name, platform, created_by) VALUES (?, ?, ?, ?)',
-    [name, client_name, platform || 'ТВИН', req.user.id]
+    'INSERT INTO projects (name, client_name, platform, created_by, slug) VALUES (?, ?, ?, ?, ?)',
+    [name, client_name, platform || 'ТВИН', req.user.id, slug]
   );
-  saveDatabase();
 
   const lastId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
   const result = db.exec('SELECT * FROM projects WHERE id = ?', [lastId]);
+  saveDatabase();
+
   res.status(201).json({ project: getOne(result) });
 });
 
 router.patch('/:id', requireRole('admin'), (req, res) => {
   const { name, client_name, platform } = req.body;
-  const projectId = req.params.id;
 
   const db = getDb();
-  const existing = db.exec('SELECT * FROM projects WHERE id = ?', [projectId]);
-  if (existing.length === 0 || existing[0].values.length === 0) {
+  const project = resolveProject(req.params.id);
+  if (!project) {
     return res.status(404).json({ error: 'Project not found' });
   }
 
   const updates = [];
   const values = [];
 
-  if (name !== undefined) { updates.push('name = ?'); values.push(name); }
+  if (name !== undefined) {
+    updates.push('name = ?');
+    values.push(name);
+    updates.push('slug = ?');
+    values.push(makeUniqueSlug(db, slugify(name), project.id));
+  }
   if (client_name !== undefined) { updates.push('client_name = ?'); values.push(client_name); }
   if (platform !== undefined) { updates.push('platform = ?'); values.push(platform); }
 
@@ -128,36 +149,36 @@ router.patch('/:id', requireRole('admin'), (req, res) => {
     return res.status(400).json({ error: 'No fields to update' });
   }
 
-  values.push(projectId);
+  values.push(project.id);
   db.run(`UPDATE projects SET ${updates.join(', ')} WHERE id = ?`, values);
   saveDatabase();
 
-  const result = db.exec('SELECT * FROM projects WHERE id = ?', [projectId]);
+  const result = db.exec('SELECT * FROM projects WHERE id = ?', [project.id]);
   res.json({ project: getOne(result) });
 });
 
 router.post('/:id/bots', requireRole('admin'), (req, res) => {
   const { name, description } = req.body;
-  const projectId = req.params.id;
 
   if (!name) {
     return res.status(400).json({ error: 'Bot name required' });
   }
 
   const db = getDb();
-  const projectResult = db.exec('SELECT id FROM projects WHERE id = ?', [projectId]);
-  if (projectResult.length === 0 || projectResult[0].values.length === 0) {
+  const project = resolveProject(req.params.id);
+  if (!project) {
     return res.status(404).json({ error: 'Project not found' });
   }
 
   db.run(
     'INSERT INTO bots (project_id, name, description) VALUES (?, ?, ?)',
-    [projectId, name, description || null]
+    [project.id, name, description || null]
   );
-  saveDatabase();
 
   const lastId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
   const result = db.exec('SELECT * FROM bots WHERE id = ?', [lastId]);
+  saveDatabase();
+
   res.status(201).json({ bot: getOne(result) });
 });
 
@@ -166,7 +187,12 @@ router.patch('/:projectId/bots/:botId', requireRole('admin'), (req, res) => {
   const { botId } = req.params;
 
   const db = getDb();
-  const existing = db.exec('SELECT * FROM bots WHERE id = ? AND project_id = ?', [botId, req.params.projectId]);
+  const project = resolveProject(req.params.projectId);
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  const existing = db.exec('SELECT * FROM bots WHERE id = ? AND project_id = ?', [botId, project.id]);
   if (existing.length === 0 || existing[0].values.length === 0) {
     return res.status(404).json({ error: 'Bot not found' });
   }
@@ -192,7 +218,12 @@ router.patch('/:projectId/bots/:botId', requireRole('admin'), (req, res) => {
 router.delete('/:projectId/bots/:botId', requireRole('admin'), (req, res) => {
   const { botId } = req.params;
   const db = getDb();
-  const existing = db.exec('SELECT * FROM bots WHERE id = ? AND project_id = ?', [botId, req.params.projectId]);
+  const project = resolveProject(req.params.projectId);
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  const existing = db.exec('SELECT * FROM bots WHERE id = ? AND project_id = ?', [botId, project.id]);
   if (existing.length === 0 || existing[0].values.length === 0) {
     return res.status(404).json({ error: 'Bot not found' });
   }
@@ -204,7 +235,6 @@ router.delete('/:projectId/bots/:botId', requireRole('admin'), (req, res) => {
 
 router.post('/:id/members', requireRole('admin'), (req, res) => {
   const { user_id, role_in_project } = req.body;
-  const projectId = req.params.id;
 
   if (!user_id || !role_in_project) {
     return res.status(400).json({ error: 'user_id and role_in_project required' });
@@ -215,8 +245,8 @@ router.post('/:id/members', requireRole('admin'), (req, res) => {
   }
 
   const db = getDb();
-  const projectResult = db.exec('SELECT id FROM projects WHERE id = ?', [projectId]);
-  if (projectResult.length === 0 || projectResult[0].values.length === 0) {
+  const project = resolveProject(req.params.id);
+  if (!project) {
     return res.status(404).json({ error: 'Project not found' });
   }
 
@@ -227,7 +257,7 @@ router.post('/:id/members', requireRole('admin'), (req, res) => {
 
   db.run(
     'INSERT OR REPLACE INTO project_members (project_id, user_id, role_in_project) VALUES (?, ?, ?)',
-    [projectId, user_id, role_in_project]
+    [project.id, user_id, role_in_project]
   );
   saveDatabase();
 
@@ -236,19 +266,23 @@ router.post('/:id/members', requireRole('admin'), (req, res) => {
 
 router.delete('/:id/members/:userId', requireRole('admin'), (req, res) => {
   const db = getDb();
-  db.run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [req.params.id, req.params.userId]);
+  const project = resolveProject(req.params.id);
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  db.run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [project.id, req.params.userId]);
   saveDatabase();
   res.json({ ok: true });
 });
 
 router.delete('/:id', requireRole('admin'), (req, res) => {
-  const projectId = req.params.id;
   const db = getDb();
-
-  const project = getOne(db.exec('SELECT * FROM projects WHERE id = ?', [projectId]));
+  const project = resolveProject(req.params.id);
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });
   }
+  const projectId = project.id;
 
   const files = db.exec(`
     SELECT a.file_path FROM issue_attachments a

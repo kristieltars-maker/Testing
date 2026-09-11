@@ -106,7 +106,7 @@ export default function IssueDetailPage() {
     if (!confirm(`Удалить замечание #${issue.local_number}? Действие необратимо.`)) return;
     try {
       await api.deleteIssue(issueId);
-      navigate(`/projects/${issue.project_id}`);
+      navigate(`/projects/${issue.project_slug || issue.project_id}`);
     } catch (err) {
       alert(err.message);
     }
@@ -119,7 +119,7 @@ export default function IssueDetailPage() {
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: 20 }}>
-      <Link to={`/projects/${issue.project_id}`} style={{ color: '#3498db' }}>← К замечаниям</Link>
+      <Link to={`/projects/${issue.project_slug || issue.project_id}`} style={{ color: '#3498db' }}>← К замечаниям</Link>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, marginTop: 10, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0 }}>#{issue.local_number}</h2>

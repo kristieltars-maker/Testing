@@ -2,6 +2,7 @@ import { initDatabase, getDb, saveDatabase } from './database.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { mkdirSync, existsSync } from 'fs';
+import { slugify } from '../utils/slug.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -47,6 +48,7 @@ async function migrate() {
       name TEXT NOT NULL,
       client_name TEXT NOT NULL,
       platform TEXT NOT NULL DEFAULT 'ТВИН',
+      slug TEXT,
       created_by INTEGER NOT NULL REFERENCES users(id),
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -117,6 +119,30 @@ async function migrate() {
   db.run('CREATE INDEX IF NOT EXISTS idx_issue_attachments_message_id ON issue_attachments(message_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_bots_project_id ON bots(project_id)');
+
+  // Миграция: добавляем slug для существующих БД
+  const projectCols = db.exec("PRAGMA table_info('projects')");
+  const hasSlug = projectCols.length > 0 && projectCols[0].values.some(r => r[1] === 'slug');
+  if (!hasSlug) {
+    db.run('ALTER TABLE projects ADD COLUMN slug TEXT');
+  }
+
+  // Бэкфилл slug для проектов, где он ещё не задан
+  const missing = db.exec("SELECT id, name FROM projects WHERE slug IS NULL OR slug = ''");
+  const missingRows = missing.length > 0 ? missing[0].values : [];
+  for (const [id, name] of missingRows) {
+    const base = slugify(name);
+    let slug = base;
+    let counter = 2;
+    while (true) {
+      const dup = db.exec('SELECT id FROM projects WHERE slug = ? AND id != ?', [slug, id]);
+      if (dup.length === 0 || dup[0].values.length === 0) break;
+      slug = `${base}-${counter++}`;
+    }
+    db.run('UPDATE projects SET slug = ? WHERE id = ?', [slug, id]);
+  }
+
+  db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_slug ON projects(slug)');
 
   saveDatabase();
   console.log('Database migrated successfully');

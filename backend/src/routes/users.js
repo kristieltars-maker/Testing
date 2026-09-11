@@ -53,10 +53,11 @@ router.post('/', (req, res) => {
     'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)',
     [name, email, password_hash, role]
   );
-  saveDatabase();
 
   const lastId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
   const result = db.exec('SELECT id, name, email, role, is_active, created_at FROM users WHERE id = ?', [lastId]);
+  saveDatabase();
+
   const user = rowsToObjects(result)[0];
   res.status(201).json({ user });
 });
