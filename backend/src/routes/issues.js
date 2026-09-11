@@ -244,7 +244,7 @@ router.get('/:id', (req, res) => {
   });
 });
 
-router.post('/', requireRole('tester', 'admin'), upload.array('attachments', 10), (req, res) => {
+router.post('/', upload.array('attachments', 10), (req, res) => {
   const { project_id, bot_id, text, assigned_to } = req.body;
 
   if (!project_id || !text) {
@@ -390,7 +390,7 @@ router.post('/:id/messages', upload.array('attachments', 10), (req, res) => {
   res.json({ issue: getOne(updatedResult) });
 });
 
-router.patch('/:id/assign', requireRole('tester', 'developer', 'admin'), (req, res) => {
+router.patch('/:id/assign', (req, res) => {
   const { assigned_to } = req.body;
   const issueId = req.params.id;
 

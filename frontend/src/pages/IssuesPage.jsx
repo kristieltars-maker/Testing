@@ -71,7 +71,7 @@ export default function IssuesPage() {
   if (loading) return <div className="empty">Загрузка...</div>;
   if (!project) return <div className="empty">Проект не найден</div>;
 
-  const canCreate = user.role === 'admin' || (user.role === 'tester' && members.some(m => m.id === user.id && m.role_in_project === 'tester'));
+  const canCreate = user.role === 'admin' || members.some(m => m.id === user.id && m.role_in_project === 'tester');
 
   return (
     <div className="page">

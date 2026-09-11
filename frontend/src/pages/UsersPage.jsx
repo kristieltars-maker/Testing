@@ -159,11 +159,14 @@ export default function UsersPage() {
             onToggle={() => setShowCreatePass(!showCreatePass)}
             style={{ marginBottom: 8 }}
           />
-          <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} style={{ padding: 6, width: '100%', marginBottom: 8 }}>
+          <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} style={{ padding: 6, width: '100%', marginBottom: 4 }}>
             <option value="tester">Тестировщик</option>
             <option value="developer">Скриптолог</option>
             <option value="admin">Админ</option>
           </select>
+          <div className="muted" style={{ marginBottom: 8, fontSize: 12 }}>
+            Роль по умолчанию. В каждом проекте роль задаётся отдельно (кнопка «Проекты»): один и тот же пользователь может быть тестировщиком в одном проекте и скриптологом в другом.
+          </div>
           <button type="submit" style={{ padding: '6px 16px' }}>Создать</button>
         </form>
       )}
@@ -173,7 +176,7 @@ export default function UsersPage() {
           <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
             <th style={{ padding: 8 }}>Имя</th>
             <th style={{ padding: 8 }}>Email</th>
-            <th style={{ padding: 8 }}>Роль</th>
+            <th style={{ padding: 8 }}>Роль (по умолч.)</th>
             <th style={{ padding: 8 }}>Статус</th>
             <th style={{ padding: 8 }}>Проекты</th>
             <th style={{ padding: 8 }}>Действия</th>

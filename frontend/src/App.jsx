@@ -47,7 +47,7 @@ function Layout({ children }) {
           {user.role === 'admin' && (
             <Link to="/admin/users" style={{ textDecoration: 'none' }}>Пользователи</Link>
           )}
-          <span className="muted">{user.name} ({user.role})</span>
+          <span className="muted">{user.name}{user.role === 'admin' ? ' (админ)' : ''}</span>
           <button className="btn-secondary btn-sm" onClick={handleLogout}>Выход</button>
         </div>
       </nav>
