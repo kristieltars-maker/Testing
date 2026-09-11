@@ -240,6 +240,18 @@ router.post('/', requireRole('tester', 'admin'), upload.array('attachments', 10)
     return res.status(404).json({ error: 'Project not found' });
   }
 
+  if (assigned_to) {
+    const devResult = db.exec(`
+      SELECT u.id FROM users u
+      JOIN project_members pm ON pm.user_id = u.id AND pm.project_id = ?
+      WHERE u.id = ? AND pm.role_in_project = 'developer'
+    `, [project_id, assigned_to]);
+
+    if (devResult.length === 0 || devResult[0].values.length === 0) {
+      return res.status(400).json({ error: 'assigned_to must be a developer in this project' });
+    }
+  }
+
   const maxNumResult = db.exec('SELECT MAX(local_number) as max_num FROM issues WHERE project_id = ?', [project_id]);
   const maxNum = (maxNumResult.length > 0 && maxNumResult[0].values.length > 0 && maxNumResult[0].values[0][0]) || 0;
   const local_number = maxNum + 1;

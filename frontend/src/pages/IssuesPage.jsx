@@ -32,7 +32,7 @@ export default function IssuesPage() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [filters, setFilters] = useState({ status: '', bot_id: '', created_by: '', assigned_to: '' });
-  const [newIssue, setNewIssue] = useState({ bot_id: '', text: '', files: [] });
+  const [newIssue, setNewIssue] = useState({ bot_id: '', text: '', files: [], assigned_to: '' });
 
   const load = () => {
     Promise.all([
@@ -53,14 +53,25 @@ export default function IssuesPage() {
     const formData = new FormData();
     formData.append('project_id', projectId);
     if (newIssue.bot_id) formData.append('bot_id', newIssue.bot_id);
+    if (newIssue.assigned_to) formData.append('assigned_to', newIssue.assigned_to);
     formData.append('text', newIssue.text);
     for (const file of newIssue.files) {
       formData.append('attachments', file);
     }
     await api.createIssue(formData, projectId);
-    setNewIssue({ bot_id: '', text: '', files: [] });
+    setNewIssue({ bot_id: '', text: '', files: [], assigned_to: '' });
     setShowCreate(false);
     load();
+  };
+
+  const developers = members.filter(m => m.role_in_project === 'developer');
+
+  const toggleCreate = () => {
+    const next = !showCreate;
+    if (next) {
+      setNewIssue(prev => ({ ...prev, assigned_to: prev.assigned_to || String(developers[0]?.id || '') }));
+    }
+    setShowCreate(next);
   };
 
   if (loading) return <div>Загрузка...</div>;
@@ -99,7 +110,7 @@ export default function IssuesPage() {
           {members.filter(m => m.role_in_project === 'developer').map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
         {canCreate && (
-          <button onClick={() => setShowCreate(!showCreate)} style={{ padding: '6px 16px', marginLeft: 'auto' }}>
+          <button onClick={toggleCreate} style={{ padding: '6px 16px', marginLeft: 'auto' }}>
             + Новое замечание
           </button>
         )}
@@ -107,12 +118,17 @@ export default function IssuesPage() {
 
       {showCreate && (
         <form onSubmit={handleCreate} style={{ marginBottom: 20, padding: 15, border: '1px solid #ccc' }}>
+          <div style={{ marginBottom: 8, fontSize: 13, color: '#666' }}>Автор: {user.name}</div>
           {bots.length > 0 && (
             <select value={newIssue.bot_id} onChange={e => setNewIssue({ ...newIssue, bot_id: e.target.value })} style={{ padding: 6, marginBottom: 8, width: '100%' }}>
               <option value="">Без привязки к боту</option>
               {bots.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           )}
+          <select value={newIssue.assigned_to} onChange={e => setNewIssue({ ...newIssue, assigned_to: e.target.value })} style={{ padding: 6, marginBottom: 8, width: '100%' }}>
+            <option value="">Ответственный: не назначен</option>
+            {developers.map(d => <option key={d.id} value={d.id}>Ответственный: {d.name}</option>)}
+          </select>
           <textarea
             placeholder="Описание замечания..."
             value={newIssue.text}
