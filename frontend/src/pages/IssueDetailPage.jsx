@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_DESCRIPTIONS } from '../constants/statuses.js';
 import { formatDateTime } from '../utils/datetime.js';
 import TrashIcon from '../components/TrashIcon.jsx';
+import MessageComposer from '../components/MessageComposer.jsx';
 
 export default function IssueDetailPage() {
   const { issueId, projectSlug } = useParams();
@@ -22,26 +23,12 @@ export default function IssueDetailPage() {
   const [lightbox, setLightbox] = useState(null);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ text: '', bot_id: '' });
-  const [drag, setDrag] = useState(false);
-  const [previews, setPreviews] = useState([]);
   const [sidebarWidth, setSidebarWidth] = useState(() => Number(localStorage.getItem('issueSidebarWidth')) || 340);
   const [composerH, setComposerH] = useState(() => Number(localStorage.getItem('issueComposerH2')) || 38);
   const bottomRef = useRef(null);
-  const fileInputRef = useRef(null);
-
-  useEffect(() => {
-    const urls = files.map(f => ({ file: f, url: URL.createObjectURL(f) }));
-    setPreviews(urls);
-    return () => urls.forEach(u => URL.revokeObjectURL(u.url));
-  }, [files]);
 
   useEffect(() => { localStorage.setItem('issueSidebarWidth', String(sidebarWidth)); }, [sidebarWidth]);
   useEffect(() => { localStorage.setItem('issueComposerH2', String(composerH)); }, [composerH]);
-
-  const addFiles = (list) => {
-    const images = Array.from(list).filter(f => f.type.startsWith('image/'));
-    if (images.length) setFiles(prev => [...prev, ...images]);
-  };
 
   const startResizeWidth = (e) => {
     e.preventDefault();
@@ -133,13 +120,6 @@ export default function IssueDetailPage() {
     }
   }, [text, files, issueId]);
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
-      e.preventDefault();
-      handleSend(null);
-    }
-  };
-
   const handleAssign = async (value) => {
     try {
       await api.assignIssue(issueId, value || null);
@@ -205,9 +185,8 @@ export default function IssueDetailPage() {
                     padding: 10, borderRadius: 8
                   }}>
                     <div style={{ fontWeight: 'bold', fontSize: 13, marginBottom: 4 }}>{msg.author_name}</div>
-                    <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
                     {msg.attachments.length > 0 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: msg.text ? 8 : 0, alignItems: 'center' }}>
                         {msg.attachments.map(att => (
                           <img
                             key={att.id}
@@ -220,6 +199,7 @@ export default function IssueDetailPage() {
                         ))}
                       </div>
                     )}
+                    {msg.text && <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>}
                     <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>{formatDateTime(msg.created_at)}</div>
                   </div>
                 </div>
@@ -229,88 +209,19 @@ export default function IssueDetailPage() {
             <div ref={bottomRef} />
           </div>
 
-          {/* Ручка изменения высоты поля ввода */}
-          <div
-            onMouseDown={startResizeHeight}
-            title="Потяните, чтобы изменить высоту поля ввода"
-            style={{ height: 10, cursor: 'row-resize', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-          >
-            <div style={{ width: 44, height: 4, borderRadius: 2, background: '#d1d5db' }} />
-          </div>
-
-          <div
-            onDragOver={e => { e.preventDefault(); setDrag(true); }}
-            onDragLeave={() => setDrag(false)}
-            onDrop={e => { e.preventDefault(); setDrag(false); if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files); }}
-            style={{
-              border: `2px dashed ${drag ? '#3498db' : 'transparent'}`,
-              background: drag ? '#eef6fd' : 'transparent',
-              borderRadius: 12,
-              padding: 4,
-              flexShrink: 0,
-              transition: 'background .15s ease, border-color .15s ease'
-            }}
-          >
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
-              {previews.length > 0 && (
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-                  {previews.map((p, i) => (
-                    <div key={i} style={{ position: 'relative' }}>
-                      <img src={p.url} alt={p.file.name} title={p.file.name} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb' }} />
-                      <button
-                        type="button"
-                        title="Убрать"
-                        onClick={() => setFiles(files.filter((_, idx) => idx !== i))}
-                        style={{ position: 'absolute', top: -8, right: -8, width: 22, height: 22, padding: 0, borderRadius: '50%', background: '#e74c3c', lineHeight: '18px', fontSize: 14 }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {previews.length > 0 && (
-                <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Подпись</div>
-              )}
-
-              <textarea
-                value={text}
-                onChange={e => setText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onPaste={e => { if (e.clipboardData?.files?.length) { e.preventDefault(); addFiles(e.clipboardData.files); } }}
-                placeholder={previews.length > 0 ? 'Подпись к изображению...' : 'Написать сообщение... (Enter — отправить, Shift+Enter — новая строка)'}
-                style={{ width: '100%', height: composerH, padding: 8, border: 'none', outline: 'none', resize: 'none', background: 'transparent', overflowY: 'auto' }}
-              />
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                <button
-                  type="button"
-                  className="btn-secondary btn-sm"
-                  title="Прикрепить скриншот (можно перетащить или вставить Ctrl+V)"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  📎 Скриншот
-                </button>
-                <button
-                  onClick={() => handleSend(null)}
-                  disabled={sending || (!text && files.length === 0)}
-                  style={{ padding: '8px 20px' }}
-                >
-                  {sending ? 'Отправка...' : 'Отправить'}
-                </button>
-              </div>
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={e => { addFiles(e.target.files); e.target.value = ''; }}
-            />
-          </div>
+          <MessageComposer
+            text={text}
+            setText={setText}
+            files={files}
+            setFiles={setFiles}
+            onSubmit={() => handleSend(null)}
+            submitLabel={sending ? 'Отправка...' : 'Отправить'}
+            disabled={sending || (!text && files.length === 0)}
+            sendOnEnter
+            placeholder="Написать сообщение... (Enter — отправить, Shift+Enter — новая строка)"
+            height={composerH}
+            onResizeStart={startResizeHeight}
+          />
         </div>
 
         {/* Ручка изменения ширины чата */}

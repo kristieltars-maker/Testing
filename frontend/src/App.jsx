@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import ProjectsPage from './pages/ProjectsPage.jsx';
 import IssuesPage from './pages/IssuesPage.jsx';
 import IssueDetailPage from './pages/IssueDetailPage.jsx';
+import IssueCreatePage from './pages/IssueCreatePage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
 import ProjectManagePage from './pages/ProjectManagePage.jsx';
 
@@ -103,6 +104,7 @@ function App() {
           <Route path="/" element={<ProtectedRoute><Layout><ProjectsPage /></Layout></ProtectedRoute>} />
           <Route path="/projects/:projectId" element={<ProtectedRoute><Layout><IssuesPage /></Layout></ProtectedRoute>} />
           <Route path="/projects/:projectId/manage" element={<ProtectedRoute><Layout><ProjectManagePage /></Layout></ProtectedRoute>} />
+          <Route path="/projects/:projectSlug/issues/new" element={<ProtectedRoute><Layout><IssueCreatePage /></Layout></ProtectedRoute>} />
           <Route path="/projects/:projectSlug/issues/:issueId" element={<ProtectedRoute><Layout><IssueDetailPage /></Layout></ProtectedRoute>} />
           <Route path="/issues/:issueId" element={<ProtectedRoute><Layout><IssueDetailPage /></Layout></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute><Layout><UsersPage /></Layout></ProtectedRoute>} />

@@ -4,7 +4,6 @@ import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_DESCRIPTIONS, STATUS_ORDER } from '../constants/statuses.js';
 import { formatDateTime } from '../utils/datetime.js';
-import ImageDropzone from '../components/ImageDropzone.jsx';
 import TrashIcon from '../components/TrashIcon.jsx';
 
 export default function IssuesPage() {
@@ -16,10 +15,7 @@ export default function IssuesPage() {
   const [bots, setBots] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
   const [filters, setFilters] = useState({ status: '', bot_id: '', created_by: '', assigned_to: '' });
-  const [newIssue, setNewIssue] = useState({ bot_id: '', text: '', files: [], assigned_to: '' });
-  const [creating, setCreating] = useState(false);
 
   const load = () => {
     Promise.all([
@@ -40,35 +36,7 @@ export default function IssuesPage() {
   const hasFilters = Object.values(filters).some(Boolean);
 
   const openCreate = () => {
-    setNewIssue({ bot_id: '', text: '', files: [], assigned_to: String(developers[0]?.id || '') });
-    setShowCreate(true);
-  };
-
-  const closeCreate = () => {
-    setShowCreate(false);
-    setNewIssue({ bot_id: '', text: '', files: [], assigned_to: '' });
-  };
-
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    setCreating(true);
-    try {
-      const formData = new FormData();
-      formData.append('project_id', projectId);
-      if (newIssue.bot_id) formData.append('bot_id', newIssue.bot_id);
-      if (newIssue.assigned_to) formData.append('assigned_to', newIssue.assigned_to);
-      formData.append('text', newIssue.text);
-      for (const file of newIssue.files) {
-        formData.append('attachments', file);
-      }
-      await api.createIssue(formData, projectId);
-      closeCreate();
-      load();
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setCreating(false);
-    }
+    navigate(`/projects/${project.slug}/issues/new`);
   };
 
   const handleDelete = async (e, issue) => {
@@ -202,86 +170,6 @@ export default function IssuesPage() {
           </div>
         )}
       </div>
-
-      {showCreate && (
-        <div className="modal-overlay" onClick={closeCreate}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 style={{ margin: 0 }}>Новое замечание</h2>
-              <button className="modal-close" onClick={closeCreate} aria-label="Закрыть">×</button>
-            </div>
-
-            <form onSubmit={handleCreate}>
-              <div className="form-group">
-                <label>Автор</label>
-                <div className="muted" style={{ padding: '4px 0' }}>{user.name}</div>
-              </div>
-
-              <div className="form-group">
-                <label>Статус после создания</label>
-                <div style={{ padding: '2px 0' }}>
-                  <span className="badge" style={{ background: STATUS_COLORS.new, cursor: 'help' }} title={STATUS_DESCRIPTIONS.new}>
-                    {STATUS_LABELS.new}
-                  </span>
-                </div>
-              </div>
-
-              {bots.length > 0 && (
-                <div className="form-group">
-                  <label>Бот</label>
-                  <select
-                    className="form-control"
-                    value={newIssue.bot_id}
-                    onChange={e => setNewIssue({ ...newIssue, bot_id: e.target.value })}
-                  >
-                    <option value="">Без привязки к боту</option>
-                    {bots.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select>
-                </div>
-              )}
-
-              <div className="form-group">
-                <label>Ответственный скриптолог</label>
-                <select
-                  className="form-control"
-                  value={newIssue.assigned_to}
-                  onChange={e => setNewIssue({ ...newIssue, assigned_to: e.target.value })}
-                >
-                  <option value="">Не назначен</option>
-                  {developers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Описание замечания *</label>
-                <textarea
-                  className="form-control"
-                  placeholder="Опишите замечание..."
-                  value={newIssue.text}
-                  onChange={e => setNewIssue({ ...newIssue, text: e.target.value })}
-                  required
-                  rows={5}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Скриншоты</label>
-                <ImageDropzone
-                  files={newIssue.files}
-                  onChange={files => setNewIssue({ ...newIssue, files })}
-                />
-              </div>
-
-              <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={closeCreate}>Отмена</button>
-                <button type="submit" disabled={creating}>
-                  {creating ? 'Создание...' : 'Создать замечание'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
