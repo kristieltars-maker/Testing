@@ -4,4 +4,7 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __BUILD_DATE__: JSON.stringify(new Date().toISOString())
+  },
 })

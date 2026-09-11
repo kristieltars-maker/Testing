@@ -35,6 +35,9 @@ function Layout({ children }) {
       }}>
         <Link to="/" style={{ textDecoration: 'none', color: '#333', fontWeight: 'bold', fontSize: 18 }}>
           Тестирование ботов
+          <span style={{ fontSize: 11, color: '#aaa', fontWeight: 'normal', marginLeft: 8 }}>
+            {typeof __BUILD_DATE__ !== 'undefined' ? new Date(__BUILD_DATE__).toLocaleString('ru-RU') : 'dev'}
+          </span>
         </Link>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
           {user.role === 'admin' && (
