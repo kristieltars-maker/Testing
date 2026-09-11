@@ -4,6 +4,7 @@ import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_DESCRIPTIONS } from '../constants/statuses.js';
 import { formatDateTime } from '../utils/datetime.js';
+import TrashIcon from '../components/TrashIcon.jsx';
 
 export default function IssueDetailPage() {
   const { issueId, projectSlug } = useParams();
@@ -173,6 +174,7 @@ export default function IssueDetailPage() {
   if (!issue) return <div className="empty">Замечание не найдено</div>;
 
   const isAdmin = user.role === 'admin';
+  const canDelete = isAdmin || issue.created_by === user.id;
   const projectLink = issue.project_slug || projectSlug || issue.project_id;
   const chatMessages = messages.filter(m => !m.is_system);
   const history = messages.filter(m => m.is_system);
@@ -356,10 +358,19 @@ export default function IssueDetailPage() {
             </div>
 
             {isAdmin && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                <button onClick={() => setEditing(!editing)} className="btn-secondary btn-sm">Редактировать</button>
-                <button onClick={handleDelete} className="btn-danger btn-sm">Удалить</button>
-              </div>
+              <button onClick={() => setEditing(!editing)} className="btn-secondary btn-sm" style={{ marginTop: 12 }}>
+                Редактировать
+              </button>
+            )}
+            {canDelete && (
+              <button
+                onClick={handleDelete}
+                className="btn-danger btn-sm"
+                title="Удалить замечание"
+                style={{ marginTop: 12, marginLeft: isAdmin ? 8 : 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <TrashIcon /> Удалить
+              </button>
             )}
           </div>
 

@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_DESCRIPTIONS, STATUS_ORDER } from '../constants/statuses.js';
 import { formatDateTime } from '../utils/datetime.js';
 import ImageDropzone from '../components/ImageDropzone.jsx';
+import TrashIcon from '../components/TrashIcon.jsx';
 
 export default function IssuesPage() {
   const { projectId } = useParams();
@@ -67,6 +68,17 @@ export default function IssuesPage() {
       alert(err.message);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleDelete = async (e, issue) => {
+    e.stopPropagation();
+    if (!confirm(`Удалить замечание #${issue.local_number}? Действие необратимо.`)) return;
+    try {
+      await api.deleteIssue(issue.id);
+      load();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -148,6 +160,7 @@ export default function IssuesPage() {
               <th>Автор</th>
               <th>Ответственный</th>
               <th>Обновлено</th>
+              <th style={{ width: 48 }} aria-label="Действия"></th>
             </tr>
           </thead>
           <tbody>
@@ -167,6 +180,17 @@ export default function IssuesPage() {
                 <td>{issue.creator_name}</td>
                 <td>{issue.assignee_name || '—'}</td>
                 <td className="muted">{formatDateTime(issue.updated_at)}</td>
+                <td onClick={e => e.stopPropagation()} style={{ textAlign: 'center', width: 48 }}>
+                  {(user.role === 'admin' || issue.created_by === user.id) && (
+                    <button
+                      className="icon-btn danger"
+                      title="Удалить замечание"
+                      onClick={e => handleDelete(e, issue)}
+                    >
+                      <TrashIcon />
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

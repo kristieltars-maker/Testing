@@ -480,7 +480,7 @@ router.patch('/:id', requireRole('admin'), (req, res) => {
   res.json({ issue: getOne(updatedResult) });
 });
 
-router.delete('/:id', requireRole('admin'), (req, res) => {
+router.delete('/:id', (req, res) => {
   const issueId = req.params.id;
 
   const db = getDb();
@@ -488,6 +488,10 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
 
   if (!issue) {
     return res.status(404).json({ error: 'Issue not found' });
+  }
+
+  if (req.user.role !== 'admin' && issue.created_by !== req.user.id) {
+    return res.status(403).json({ error: 'Удалить замечание может только его автор или администратор' });
   }
 
   const files = db.exec(`
