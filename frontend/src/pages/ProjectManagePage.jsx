@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client.js';
 
+const PROJECT_ROLE_LABELS = {
+  tester: 'Тестировщик',
+  developer: 'Скриптолог',
+  manager: 'Руководитель проекта'
+};
+
 export default function ProjectManagePage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -116,15 +122,6 @@ export default function ProjectManagePage() {
           <input placeholder="Название" value={projectForm.name} onChange={e => setProjectForm({ ...projectForm, name: e.target.value })} required style={{ padding: 6, flex: 1, minWidth: 160 }} />
           <input placeholder="Заказчик" value={projectForm.client_name} onChange={e => setProjectForm({ ...projectForm, client_name: e.target.value })} required style={{ padding: 6, flex: 1, minWidth: 160 }} />
           <input placeholder="Платформа" value={projectForm.platform} onChange={e => setProjectForm({ ...projectForm, platform: e.target.value })} style={{ padding: 6, minWidth: 120 }} />
-          <label style={{ fontSize: 13, color: '#6b7280' }}>Руководитель проекта:</label>
-          <select
-            value={projectForm.manager_id || ''}
-            onChange={e => setProjectForm({ ...projectForm, manager_id: e.target.value })}
-            style={{ padding: 6, minWidth: 180 }}
-          >
-            <option value="">— не назначен —</option>
-            {allUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
           <button type="submit" style={{ padding: '6px 16px' }}>Сохранить</button>
         </form>
       </section>
@@ -175,7 +172,7 @@ export default function ProjectManagePage() {
               <tr key={m.id} style={{ borderBottom: '1px solid #eee' }}>
                 <td style={{ padding: 8 }}>{m.name}</td>
                 <td style={{ padding: 8 }}>{m.email}</td>
-                <td style={{ padding: 8 }}>{m.role_in_project === 'tester' ? 'Тестировщик' : 'Скриптолог'}</td>
+                <td style={{ padding: 8 }}>{PROJECT_ROLE_LABELS[m.role_in_project] || m.role_in_project}</td>
                 <td style={{ padding: 8 }}>
                   <button onClick={() => removeMember(m.id)} style={{ padding: '4px 10px', fontSize: 13, background: '#c0392b' }}>Убрать</button>
                 </td>
@@ -192,6 +189,7 @@ export default function ProjectManagePage() {
           <select value={newMember.role_in_project} onChange={e => setNewMember({ ...newMember, role_in_project: e.target.value })} style={{ padding: 6 }}>
             <option value="tester">Тестировщик</option>
             <option value="developer">Скриптолог</option>
+            <option value="manager">Руководитель проекта</option>
           </select>
           <button type="submit" style={{ padding: '6px 12px' }}>Добавить</button>
         </form>

@@ -244,7 +244,7 @@ router.post('/:id/members', requireRole('admin'), (req, res) => {
     return res.status(400).json({ error: 'user_id and role_in_project required' });
   }
 
-  if (!['tester', 'developer'].includes(role_in_project)) {
+  if (!['tester', 'developer', 'manager'].includes(role_in_project)) {
     return res.status(400).json({ error: 'Invalid role_in_project' });
   }
 
@@ -257,6 +257,12 @@ router.post('/:id/members', requireRole('admin'), (req, res) => {
   const userResult = db.exec('SELECT id FROM users WHERE id = ? AND is_active = 1', [user_id]);
   if (userResult.length === 0 || userResult[0].values.length === 0) {
     return res.status(404).json({ error: 'User not found' });
+  }
+
+  if (role_in_project === 'manager') {
+    // Руководитель проекта один: убираем предыдущего
+    db.run("DELETE FROM project_members WHERE project_id = ? AND role_in_project = 'manager' AND user_id != ?", [project.id, user_id]);
+    db.run('UPDATE projects SET manager_id = ? WHERE id = ?', [user_id, project.id]);
   }
 
   db.run(
@@ -276,6 +282,7 @@ router.delete('/:id/members/:userId', requireRole('admin'), (req, res) => {
   }
 
   db.run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [project.id, req.params.userId]);
+  db.run('UPDATE projects SET manager_id = NULL WHERE id = ? AND manager_id = ?', [project.id, req.params.userId]);
   saveDatabase();
   res.json({ ok: true });
 });

@@ -69,7 +69,7 @@ async function migrate() {
     CREATE TABLE IF NOT EXISTS project_members (
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id),
-      role_in_project TEXT NOT NULL CHECK(role_in_project IN ('tester', 'developer')),
+      role_in_project TEXT NOT NULL CHECK(role_in_project IN ('tester', 'developer', 'manager')),
       PRIMARY KEY (project_id, user_id)
     )
   `);
@@ -174,6 +174,26 @@ async function migrate() {
   const hasManager = projectCols2.length > 0 && projectCols2[0].values.some(r => r[1] === 'manager_id');
   if (!hasManager) {
     db.run('ALTER TABLE projects ADD COLUMN manager_id INTEGER');
+  }
+
+  // Миграция: роль 'manager' для участника проекта (руководитель проекта).
+  const pmSqlRes = db.exec("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'project_members'");
+  const pmSql = pmSqlRes.length > 0 ? String(pmSqlRes[0].values[0][0]) : '';
+  if (pmSql && !pmSql.includes("'manager'")) {
+    db.run('PRAGMA foreign_keys = OFF');
+    db.run(`
+      CREATE TABLE project_members_new (
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        role_in_project TEXT NOT NULL CHECK(role_in_project IN ('tester', 'developer', 'manager')),
+        PRIMARY KEY (project_id, user_id)
+      )
+    `);
+    db.run('INSERT INTO project_members_new (project_id, user_id, role_in_project) SELECT project_id, user_id, role_in_project FROM project_members');
+    db.run('DROP TABLE project_members');
+    db.run('ALTER TABLE project_members_new RENAME TO project_members');
+    db.run('PRAGMA foreign_keys = ON');
+    db.run('CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_id)');
   }
 
   saveDatabase();
