@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_DESCRIPTIONS, STATUS_ORDER } from '../constants/statuses.js';
+import { formatDateTime } from '../utils/datetime.js';
 
 export default function IssuesPage() {
   const { projectId } = useParams();
@@ -164,7 +165,7 @@ export default function IssuesPage() {
                 </td>
                 <td>{issue.creator_name}</td>
                 <td>{issue.assignee_name || '—'}</td>
-                <td className="muted">{new Date(issue.updated_at).toLocaleString('ru-RU')}</td>
+                <td className="muted">{formatDateTime(issue.updated_at)}</td>
               </tr>
             ))}
           </tbody>

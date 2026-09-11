@@ -372,10 +372,9 @@ router.post('/:id/messages', upload.array('attachments', 10), (req, res) => {
     );
 
     const statusLabel = STATUS_LABELS[status_change] || status_change;
-    const now = new Date().toLocaleString('ru-RU');
     db.run(
       'INSERT INTO issue_messages (issue_id, author_id, text, is_system) VALUES (?, ?, ?, 1)',
-      [issueId, req.user.id, `Статус изменён на "${statusLabel}" пользователем ${req.user.name}, ${now}`]
+      [issueId, req.user.id, `Статус изменён на "${statusLabel}" пользователем ${req.user.name}`]
     );
   } else {
     db.run(

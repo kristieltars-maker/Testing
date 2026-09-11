@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_DESCRIPTIONS } from '../constants/statuses.js';
+import { formatDateTime } from '../utils/datetime.js';
 
 export default function IssueDetailPage() {
   const { issueId, projectSlug } = useParams();
@@ -203,6 +204,7 @@ export default function IssueDetailPage() {
             {msg.is_system ? (
               <div style={{ textAlign: 'center', color: '#999', fontSize: 13, padding: '8px 0' }}>
                 {msg.text}
+                <div style={{ fontSize: 11, color: '#bbb', marginTop: 2 }}>{formatDateTime(msg.created_at)}</div>
               </div>
             ) : (
               <div style={{
@@ -247,7 +249,7 @@ export default function IssueDetailPage() {
                     </div>
                   )}
                   <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>
-                    {new Date(msg.created_at).toLocaleString('ru-RU')}
+                    {formatDateTime(msg.created_at)}
                   </div>
                 </div>
               </div>
