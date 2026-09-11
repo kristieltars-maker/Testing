@@ -16,11 +16,17 @@ export default function IssuesPage() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ status: '', bot_id: '', created_by: '', assigned_to: '' });
+  const [sort, setSort] = useState({ by: 'updated_at', order: 'desc' });
 
   const load = () => {
     Promise.all([
       api.getProject(projectId),
-      api.getIssues({ project_id: projectId, ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v)) })
+      api.getIssues({
+        project_id: projectId,
+        sort_by: sort.by,
+        sort_order: sort.order,
+        ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
+      })
     ]).then(([proj, iss]) => {
       setProject(proj.project);
       setBots(proj.bots);
@@ -29,7 +35,30 @@ export default function IssuesPage() {
     }).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [projectId, filters]);
+  useEffect(() => { load(); }, [projectId, filters, sort]);
+
+  const handleSort = (by) => {
+    setSort(prev => {
+      if (prev.by === by) {
+        return { by, order: prev.order === 'asc' ? 'desc' : 'asc' };
+      }
+      const defaultOrder = (by === 'updated_at' || by === 'created_at') ? 'desc' : 'asc';
+      return { by, order: defaultOrder };
+    });
+  };
+
+  const SortableHeader = ({ by, children, style }) => (
+    <th
+      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', ...style }}
+      onClick={() => handleSort(by)}
+      title="Сортировать"
+    >
+      {children}
+      <span style={{ marginLeft: 6, color: sort.by === by ? '#3498db' : '#cbd5e1' }}>
+        {sort.by === by ? (sort.order === 'asc' ? '▲' : '▼') : '↕'}
+      </span>
+    </th>
+  );
 
   const developers = members.filter(m => m.role_in_project === 'developer');
   const testers = members.filter(m => m.role_in_project === 'tester');
@@ -123,12 +152,12 @@ export default function IssuesPage() {
         <table className="issues-table">
           <thead>
             <tr>
-              <th style={{ width: 60 }}>#</th>
-              <th>Описание</th>
-              <th>Статус</th>
-              <th>Автор</th>
-              <th>Ответственный</th>
-              <th>Обновлено</th>
+              <SortableHeader by="local_number" style={{ width: 60 }}>#</SortableHeader>
+              <SortableHeader by="description">Описание</SortableHeader>
+              <SortableHeader by="status">Статус</SortableHeader>
+              <SortableHeader by="creator">Автор</SortableHeader>
+              <SortableHeader by="assignee">Ответственный</SortableHeader>
+              <SortableHeader by="updated_at">Обновлено</SortableHeader>
               <th style={{ width: 48 }} aria-label="Действия"></th>
             </tr>
           </thead>

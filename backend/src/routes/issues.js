@@ -177,7 +177,16 @@ router.get('/', (req, res) => {
     params.push(bot_id);
   }
 
-  const sortField = sort_by === 'local_number' ? 'i.local_number' : 'i.updated_at';
+  const SORT_COLUMNS = {
+    local_number: 'i.local_number',
+    description: 'first_message',
+    status: 'i.status',
+    creator: 'creator_name',
+    assignee: 'assignee_name',
+    updated_at: 'i.updated_at',
+    created_at: 'i.created_at'
+  };
+  const sortField = SORT_COLUMNS[sort_by] || 'i.updated_at';
   const order = sort_order === 'asc' ? 'ASC' : 'DESC';
   query += ` ORDER BY ${sortField} ${order}`;
 
