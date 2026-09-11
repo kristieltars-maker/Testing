@@ -4,6 +4,7 @@ import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_DESCRIPTIONS, STATUS_ORDER } from '../constants/statuses.js';
 import { formatDateTime } from '../utils/datetime.js';
+import ImageDropzone from '../components/ImageDropzone.jsx';
 
 export default function IssuesPage() {
   const { projectId } = useParams();
@@ -240,15 +241,10 @@ export default function IssuesPage() {
 
               <div className="form-group">
                 <label>Скриншоты</label>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={e => setNewIssue({ ...newIssue, files: Array.from(e.target.files) })}
+                <ImageDropzone
+                  files={newIssue.files}
+                  onChange={files => setNewIssue({ ...newIssue, files })}
                 />
-                {newIssue.files.length > 0 && (
-                  <div className="file-hint">Прикреплено файлов: {newIssue.files.length}</div>
-                )}
               </div>
 
               <div className="modal-actions">

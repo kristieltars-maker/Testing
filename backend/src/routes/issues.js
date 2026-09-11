@@ -19,6 +19,10 @@ const storage = multer.diskStorage({
     let pid = req.body.project_id;
     try {
       const db = getDb();
+      if (!pid && req.params && req.params.id) {
+        const r = db.exec('SELECT project_id FROM issues WHERE id = ?', [req.params.id]);
+        if (r.length > 0 && r[0].values.length > 0) pid = r[0].values[0][0];
+      }
       if (pid && !/^\d+$/.test(String(pid))) {
         const r = db.exec('SELECT id FROM projects WHERE slug = ?', [pid]);
         if (r.length > 0 && r[0].values.length > 0) pid = r[0].values[0][0];
@@ -35,6 +39,17 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
   }
 });
+
+// Multer/busboy отдаёт имя файла в latin1; перекодируем в UTF-8,
+// чтобы русские названия не превращались в «кракозябры».
+function decodeFileName(name) {
+  try {
+    const decoded = Buffer.from(String(name), 'latin1').toString('utf8');
+    return decoded.includes('\uFFFD') ? String(name) : decoded;
+  } catch (e) {
+    return String(name);
+  }
+}
 
 const upload = multer({
   storage,
@@ -300,7 +315,7 @@ router.post('/', upload.array('attachments', 10), (req, res) => {
       const relativePath = `uploads/${resolvedProjectId}/${file.filename}`;
       db.run(
         'INSERT INTO issue_attachments (message_id, file_path, file_name) VALUES (?, ?, ?)',
-        [messageId, relativePath, file.originalname]
+        [messageId, relativePath, decodeFileName(file.originalname)]
       );
     }
   }
@@ -346,7 +361,7 @@ router.post('/:id/messages', upload.array('attachments', 10), (req, res) => {
         const relativePath = `uploads/${issue.project_id}/${file.filename}`;
         db.run(
           'INSERT INTO issue_attachments (message_id, file_path, file_name) VALUES (?, ?, ?)',
-          [messageId, relativePath, file.originalname]
+          [messageId, relativePath, decodeFileName(file.originalname)]
         );
       }
     }

@@ -66,6 +66,15 @@ router.patch('/:id', (req, res) => {
   const { name, email, role, is_active } = req.body;
   const userId = req.params.id;
 
+  if (String(userId) === String(req.user.id)) {
+    if (role !== undefined && role !== 'admin') {
+      return res.status(400).json({ error: 'Нельзя снять с себя права администратора' });
+    }
+    if (is_active !== undefined && !is_active) {
+      return res.status(400).json({ error: 'Нельзя деактивировать свою учётную запись' });
+    }
+  }
+
   const db = getDb();
   const existing = db.exec('SELECT * FROM users WHERE id = ?', [userId]);
   if (existing.length === 0 || existing[0].values.length === 0) {

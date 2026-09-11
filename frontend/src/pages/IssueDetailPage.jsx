@@ -4,6 +4,7 @@ import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_DESCRIPTIONS } from '../constants/statuses.js';
 import { formatDateTime } from '../utils/datetime.js';
+import ImageDropzone from '../components/ImageDropzone.jsx';
 
 export default function IssueDetailPage() {
   const { issueId, projectSlug } = useParams();
@@ -242,7 +243,8 @@ export default function IssueDetailPage() {
                           key={att.id}
                           src={`/${att.file_path}`}
                           alt={att.file_name}
-                          style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 4, cursor: 'pointer' }}
+                          title={att.file_name}
+                          style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: '1px solid #e5e7eb' }}
                           onClick={() => setLightbox(`/${att.file_path}`)}
                         />
                       ))}
@@ -267,26 +269,21 @@ export default function IssueDetailPage() {
           rows={3}
           style={{ width: '100%', padding: 8, marginBottom: 8 }}
         />
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={e => setFiles(Array.from(e.target.files))}
-          />
+        <ImageDropzone
+          files={files}
+          onChange={setFiles}
+          compact
+          hint="Перетащите скриншот сюда, вставьте из буфера (Ctrl+V) или нажмите для выбора"
+        />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
           <button
             onClick={() => handleSend(null)}
             disabled={sending || (!text && files.length === 0)}
-            style={{ padding: '8px 20px', marginLeft: 'auto' }}
+            style={{ padding: '8px 20px' }}
           >
             {sending ? 'Отправка...' : 'Отправить'}
           </button>
         </div>
-        {files.length > 0 && (
-          <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>
-            Прикреплено файлов: {files.length}
-          </div>
-        )}
       </div>
 
       {lightbox && (
