@@ -24,7 +24,7 @@ export default function IssueDetailPage() {
   const [drag, setDrag] = useState(false);
   const [previews, setPreviews] = useState([]);
   const [sidebarWidth, setSidebarWidth] = useState(() => Number(localStorage.getItem('issueSidebarWidth')) || 340);
-  const [composerH, setComposerH] = useState(() => Number(localStorage.getItem('issueComposerH')) || 90);
+  const [composerH, setComposerH] = useState(() => Number(localStorage.getItem('issueComposerH2')) || 38);
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -35,7 +35,7 @@ export default function IssueDetailPage() {
   }, [files]);
 
   useEffect(() => { localStorage.setItem('issueSidebarWidth', String(sidebarWidth)); }, [sidebarWidth]);
-  useEffect(() => { localStorage.setItem('issueComposerH', String(composerH)); }, [composerH]);
+  useEffect(() => { localStorage.setItem('issueComposerH2', String(composerH)); }, [composerH]);
 
   const addFiles = (list) => {
     const images = Array.from(list).filter(f => f.type.startsWith('image/'));
@@ -68,7 +68,7 @@ export default function IssueDetailPage() {
     const startH = composerH;
     const onMove = (ev) => {
       const next = startH + (startY - ev.clientY);
-      setComposerH(Math.max(56, Math.min(420, next)));
+      setComposerH(Math.max(36, Math.min(420, next)));
     };
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
