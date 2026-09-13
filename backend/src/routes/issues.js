@@ -142,7 +142,7 @@ function resolveProjectId(identifier) {
 }
 
 router.get('/', (req, res) => {
-  const { project_id, status, created_by, assigned_to, bot_id, sort_by, sort_order } = req.query;
+  const { project_id, status, created_by, assigned_to, bot_id, sort_by, sort_order, search } = req.query;
 
   if (!project_id) {
     return res.status(400).json({ error: 'project_id required' });
@@ -191,6 +191,11 @@ router.get('/', (req, res) => {
   if (bot_id) {
     query += ' AND i.bot_id = ?';
     params.push(bot_id);
+  }
+
+  if (search && String(search).trim()) {
+    query += ` AND EXISTS (SELECT 1 FROM issue_messages im WHERE im.issue_id = i.id AND im.is_system = 0 AND im.text LIKE ?)`;
+    params.push(`%${String(search).trim()}%`);
   }
 
   const SORT_COLUMNS = {

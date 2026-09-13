@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api/client.js';
 import { ROLE_LABELS, ROLE_OPTIONS } from '../constants/roles.js';
+import TrashIcon from '../components/TrashIcon.jsx';
 
 function PasswordInput({ value, onChange, placeholder, required, visible, onToggle, style }) {
   return (
@@ -101,6 +102,16 @@ export default function UsersPage() {
   const toggleActive = async (user) => {
     await api.updateUser(user.id, { is_active: !user.is_active });
     load();
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (!confirm(`Удалить пользователя «${user.name}»? Действие необратимо.`)) return;
+    try {
+      await api.deleteUser(user.id);
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const openManage = async (user) => {
@@ -217,11 +228,19 @@ export default function UsersPage() {
                   </span>
                 </td>
                 <td style={{ padding: 8, fontSize: 13 }}>{u.projects || '—'}</td>
-                <td style={{ padding: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <td style={{ padding: 8, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                   <button onClick={() => startEdit(u)} style={{ padding: '4px 10px', fontSize: 13 }}>Редактировать</button>
                   <button onClick={() => openManage(u)} style={{ padding: '4px 10px', fontSize: 13, background: '#2980b9' }}>Проекты</button>
                   <button onClick={() => toggleActive(u)} style={{ padding: '4px 10px', fontSize: 13, background: u.is_active ? '#e67e22' : '#27ae60' }}>
                     {u.is_active ? 'Деактивировать' : 'Активировать'}
+                  </button>
+                  <button
+                    className="icon-btn danger"
+                    title="Удалить пользователя"
+                    onClick={() => handleDeleteUser(u)}
+                    style={{ border: '1px solid #e5e7eb' }}
+                  >
+                    <TrashIcon />
                   </button>
                 </td>
               </tr>

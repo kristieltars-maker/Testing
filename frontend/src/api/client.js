@@ -36,6 +36,9 @@ export const api = {
   updateUser: (id, data) =>
     request(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
+  deleteUser: (id) =>
+    request(`/users/${id}`, { method: 'DELETE' }),
+
   changePassword: (id, password) =>
     request(`/users/${id}/password`, { method: 'POST', body: JSON.stringify({ password }) }),
 

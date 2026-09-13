@@ -17,6 +17,12 @@ function rowsToObjects(result) {
   });
 }
 
+function scalar(sql, params) {
+  const db = getDb();
+  const r = db.exec(sql, params);
+  return r.length > 0 && r[0].values.length > 0 ? r[0].values[0][0] : null;
+}
+
 router.get('/', (req, res) => {
   const db = getDb();
   const result = db.exec(`
@@ -148,7 +154,7 @@ router.put('/:id/memberships', (req, res) => {
   db.run('DELETE FROM project_members WHERE user_id = ?', [req.params.id]);
 
   for (const m of memberships) {
-    if (!m.project_id || !['tester', 'developer'].includes(m.role_in_project)) continue;
+    if (!m.project_id || !['tester', 'developer', 'manager'].includes(m.role_in_project)) continue;
     db.run(
       'INSERT OR REPLACE INTO project_members (project_id, user_id, role_in_project) VALUES (?, ?, ?)',
       [m.project_id, req.params.id, m.role_in_project]
@@ -156,6 +162,49 @@ router.put('/:id/memberships', (req, res) => {
   }
 
   saveDatabase();
+  res.json({ ok: true });
+});
+
+router.delete('/:id', (req, res) => {
+  const userId = req.params.id;
+  const db = getDb();
+
+  const user = db.exec('SELECT id FROM users WHERE id = ?', [userId]);
+  if (user.length === 0 || user[0].values.length === 0) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  if (String(userId) === String(req.user.id)) {
+    return res.status(400).json({ error: 'Нельзя удалить свою учётную запись' });
+  }
+
+  // Проверка: пользователь не должен быть автором или ответственным в существующих заявках
+  const asAuthor = scalar('SELECT COUNT(*) FROM issues WHERE created_by = ?', [userId]);
+  const asAssignee = scalar('SELECT COUNT(*) FROM issues WHERE assigned_to = ?', [userId]);
+  if (asAuthor > 0 || asAssignee > 0) {
+    return res.status(400).json({
+      error: `Нельзя удалить: пользователь указан автором (${asAuthor}) или ответственным (${asAssignee}) в существующих заявках`
+    });
+  }
+
+  // Прочие ссылки, разрушающие историю/целостность
+  const asMessageAuthor = scalar('SELECT COUNT(*) FROM issue_messages WHERE author_id = ?', [userId]);
+  if (asMessageAuthor > 0) {
+    return res.status(400).json({ error: 'Нельзя удалить: у пользователя есть сообщения в заявках' });
+  }
+
+  const asProjectCreator = scalar('SELECT COUNT(*) FROM projects WHERE created_by = ?', [userId]);
+  if (asProjectCreator > 0) {
+    return res.status(400).json({ error: 'Нельзя удалить: пользователь является создателем проекта' });
+  }
+
+  // Освобождаем несвязанные ссылки
+  db.run('UPDATE projects SET manager_id = NULL WHERE manager_id = ?', [userId]);
+  db.run('DELETE FROM project_members WHERE user_id = ?', [userId]);
+  db.run('DELETE FROM sessions WHERE user_id = ?', [userId]);
+  db.run('DELETE FROM users WHERE id = ?', [userId]);
+  saveDatabase();
+
   res.json({ ok: true });
 });
 

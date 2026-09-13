@@ -17,6 +17,13 @@ export default function IssuesPage() {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ status: '', bot_id: '', created_by: '', assigned_to: '' });
   const [sort, setSort] = useState({ by: 'updated_at', order: 'desc' });
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   const load = () => {
     Promise.all([
@@ -25,6 +32,7 @@ export default function IssuesPage() {
         project_id: projectId,
         sort_by: sort.by,
         sort_order: sort.order,
+        ...(search ? { search } : {}),
         ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
       })
     ]).then(([proj, iss]) => {
@@ -35,7 +43,7 @@ export default function IssuesPage() {
     }).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [projectId, filters, sort]);
+  useEffect(() => { load(); }, [projectId, filters, sort, search]);
 
   const handleSort = (by) => {
     setSort(prev => {
@@ -118,6 +126,13 @@ export default function IssuesPage() {
       </div>
 
       <div className="filters">
+        <input
+          type="text"
+          placeholder="Поиск по описанию..."
+          value={searchInput}
+          onChange={e => setSearchInput(e.target.value)}
+          style={{ minWidth: 220 }}
+        />
         <select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })} title="Фильтр по статусу замечания">
           <option value="">Все статусы</option>
           {STATUS_ORDER.map(k => (
@@ -138,10 +153,10 @@ export default function IssuesPage() {
           <option value="">Все скриптологи</option>
           {developers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
-        {hasFilters && (
+        {(hasFilters || search) && (
           <button
             className="btn-secondary btn-sm"
-            onClick={() => setFilters({ status: '', bot_id: '', created_by: '', assigned_to: '' })}
+            onClick={() => { setFilters({ status: '', bot_id: '', created_by: '', assigned_to: '' }); setSearchInput(''); setSearch(''); }}
           >
             Сбросить
           </button>

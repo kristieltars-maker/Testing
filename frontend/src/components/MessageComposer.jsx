@@ -63,7 +63,7 @@ export default function MessageComposer({
     <div style={{ display: 'flex', gap: 4, marginBottom: 6, flexWrap: 'wrap' }}>
       <button type="button" className="tool-btn" title="Полужирный" onClick={() => applyFormat('**', '**')}><b>Ж</b></button>
       <button type="button" className="tool-btn" title="Курсив" onClick={() => applyFormat('*', '*')}><i>К</i></button>
-      <button type="button" className="tool-btn" title="Подчёркнутый" onClick={() => applyFormat('_', '_')}><u>П</u></button>
+      <button type="button" className="tool-btn" title="Подчёркнутый" onClick={() => applyFormat('__', '__')}><u>П</u></button>
       <button type="button" className="tool-btn" title="Зачёркнутый" onClick={() => applyFormat('~~', '~~')}><s>З</s></button>
       <button type="button" className="tool-btn" title="Ссылка" onClick={addLink}>🔗</button>
     </div>
