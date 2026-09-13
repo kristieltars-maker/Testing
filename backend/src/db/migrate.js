@@ -80,7 +80,7 @@ async function migrate() {
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       bot_id INTEGER REFERENCES bots(id) ON DELETE SET NULL,
       local_number INTEGER NOT NULL,
-      status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'waiting', 'done', 'cancelled', 'rejected', 'reopened')),
+      status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'in_progress', 'clarification', 'waiting', 'done', 'cancelled', 'rejected', 'reopened')),
       created_by INTEGER NOT NULL REFERENCES users(id),
       assigned_to INTEGER REFERENCES users(id),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -194,6 +194,36 @@ async function migrate() {
     db.run('ALTER TABLE project_members_new RENAME TO project_members');
     db.run('PRAGMA foreign_keys = ON');
     db.run('CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_id)');
+  }
+
+  // Миграция: новые статусы замечаний ('in_progress', 'clarification').
+  const issuesSqlRes = db.exec("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'issues'");
+  const issuesSql = issuesSqlRes.length > 0 ? String(issuesSqlRes[0].values[0][0]) : '';
+  if (issuesSql && !issuesSql.includes("'in_progress'")) {
+    db.run('PRAGMA foreign_keys = OFF');
+    db.run(`
+      CREATE TABLE issues_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        bot_id INTEGER REFERENCES bots(id) ON DELETE SET NULL,
+        local_number INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'in_progress', 'clarification', 'waiting', 'done', 'cancelled', 'rejected', 'reopened')),
+        created_by INTEGER NOT NULL REFERENCES users(id),
+        assigned_to INTEGER REFERENCES users(id),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(project_id, local_number)
+      )
+    `);
+    db.run(`INSERT INTO issues_new (id, project_id, bot_id, local_number, status, created_by, assigned_to, created_at, updated_at)
+            SELECT id, project_id, bot_id, local_number, status, created_by, assigned_to, created_at, updated_at FROM issues`);
+    db.run('DROP TABLE issues');
+    db.run('ALTER TABLE issues_new RENAME TO issues');
+    db.run('PRAGMA foreign_keys = ON');
+    db.run('CREATE INDEX IF NOT EXISTS idx_issues_project_id ON issues(project_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_issues_created_by ON issues(created_by)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_issues_assigned_to ON issues(assigned_to)');
   }
 
   saveDatabase();

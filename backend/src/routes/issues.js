@@ -65,6 +65,8 @@ const upload = multer({
 
 const STATUS_LABELS = {
   new: 'Новое',
+  in_progress: 'В работе',
+  clarification: 'На уточнении',
   waiting: 'В ожидании',
   done: 'Выполнено',
   cancelled: 'Отменено',
@@ -72,8 +74,22 @@ const STATUS_LABELS = {
   reopened: 'Вернули в работу'
 };
 
-const TESTER_TRANSITIONS = { cancelled: true, reopened: true };
-const DEVELOPER_TRANSITIONS = { waiting: true, done: true, rejected: true };
+const TESTER_TRANSITIONS = { cancelled: true, reopened: true, done: true };
+const DEVELOPER_TRANSITIONS = { in_progress: true, clarification: true, waiting: true, done: true, rejected: true };
+
+function addSystemMessage(issueId, authorId, text) {
+  const db = getDb();
+  db.run(
+    'INSERT INTO issue_messages (issue_id, author_id, text, is_system) VALUES (?, ?, ?, 1)',
+    [issueId, authorId, text]
+  );
+}
+
+function setStatus(issueId, status, authorId, systemText) {
+  const db = getDb();
+  db.run("UPDATE issues SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, issueId]);
+  if (systemText) addSystemMessage(issueId, authorId, systemText);
+}
 
 function rowsToObjects(result) {
   if (result.length === 0) return [];
@@ -270,6 +286,37 @@ router.get('/:id', (req, res) => {
   });
 });
 
+// Автопереход new -> in_progress при первом входе ответственного скриптолога
+router.post('/:id/view', (req, res) => {
+  const db = getDb();
+  const issue = getOne(db.exec('SELECT * FROM issues WHERE id = ?', [req.params.id]));
+
+  if (!issue) {
+    return res.status(404).json({ error: 'Issue not found' });
+  }
+
+  if (!checkProjectAccess(issue.project_id, req.user.id, req.user.role)) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  const isAssignedDeveloper =
+    issue.assigned_to === req.user.id &&
+    getProjectRole(issue.project_id, req.user.id) === 'developer';
+
+  if (isAssignedDeveloper && issue.status === 'new') {
+    setStatus(
+      issue.id,
+      'in_progress',
+      req.user.id,
+      `Статус изменён на "${STATUS_LABELS.in_progress}" автоматически (первый вход скриптолога)`
+    );
+    saveDatabase();
+  }
+
+  const updated = getOne(db.exec('SELECT * FROM issues WHERE id = ?', [issue.id]));
+  res.json({ issue: updated });
+});
+
 router.post('/', upload.array('attachments', 10), (req, res) => {
   const { project_id, bot_id, text, assigned_to } = req.body;
 
@@ -358,6 +405,7 @@ router.post('/:id/messages', upload.array('attachments', 10), (req, res) => {
   }
 
   const projectRole = getProjectRole(issue.project_id, req.user.id);
+  const postedMessage = Boolean(text || (req.files && req.files.length > 0));
 
   if (text || (req.files && req.files.length > 0)) {
     db.run(
@@ -401,6 +449,14 @@ router.post('/:id/messages', upload.array('attachments', 10), (req, res) => {
     db.run(
       'INSERT INTO issue_messages (issue_id, author_id, text, is_system) VALUES (?, ?, ?, 1)',
       [issueId, req.user.id, `Статус изменён на "${statusLabel}" пользователем ${req.user.name}`]
+    );
+  } else if (postedMessage && issue.status === 'clarification' && projectRole === 'tester') {
+    // Ответ тестировщика в тикете «На уточнении» автоматически возвращает его «В работе»
+    setStatus(
+      issueId,
+      'in_progress',
+      req.user.id,
+      `Статус изменён на "${STATUS_LABELS.in_progress}" автоматически (ответ тестировщика)`
     );
   } else {
     db.run(

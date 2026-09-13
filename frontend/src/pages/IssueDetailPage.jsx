@@ -72,6 +72,7 @@ export default function IssueDetailPage() {
 
   const load = async () => {
     try {
+      await api.issueView(issueId).catch(() => {});
       const data = await api.getIssue(issueId);
       setIssue(data.issue);
       setMessages(data.messages);

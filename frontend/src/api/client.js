@@ -83,6 +83,9 @@ export const api = {
   getIssue: (id) =>
     request(`/issues/${id}`),
 
+  issueView: (id) =>
+    request(`/issues/${id}/view`, { method: 'POST' }),
+
   createIssue: (formData, projectId) =>
     fetch(`${API_URL}/issues`, {
       method: 'POST',
