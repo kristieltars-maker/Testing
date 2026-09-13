@@ -4,7 +4,9 @@ import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_DESCRIPTIONS } from '../constants/statuses.js';
 import { formatDateTime } from '../utils/datetime.js';
+import { renderFormatted } from '../utils/format.js';
 import TrashIcon from '../components/TrashIcon.jsx';
+import PencilIcon from '../components/PencilIcon.jsx';
 import MessageComposer from '../components/MessageComposer.jsx';
 
 export default function IssueDetailPage() {
@@ -23,6 +25,10 @@ export default function IssueDetailPage() {
   const [lightbox, setLightbox] = useState(null);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ text: '', bot_id: '' });
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editMsgText, setEditMsgText] = useState('');
+  const [editMsgFiles, setEditMsgFiles] = useState([]);
+  const [editMsgRemove, setEditMsgRemove] = useState([]);
   const [sidebarWidth, setSidebarWidth] = useState(() => Number(localStorage.getItem('issueSidebarWidth')) || 340);
   const [composerH, setComposerH] = useState(() => Number(localStorage.getItem('issueComposerH2')) || 38);
   const bottomRef = useRef(null);
@@ -121,6 +127,27 @@ export default function IssueDetailPage() {
     }
   }, [text, files, issueId]);
 
+  const startEditMessage = (msg) => {
+    setEditingMessageId(msg.id);
+    setEditMsgText(msg.text || '');
+    setEditMsgFiles([]);
+    setEditMsgRemove([]);
+  };
+
+  const saveEditMessage = async (msg) => {
+    try {
+      const formData = new FormData();
+      formData.append('text', editMsgText);
+      if (editMsgRemove.length) formData.append('remove_attachment_ids', editMsgRemove.join(','));
+      for (const f of editMsgFiles) formData.append('attachments', f);
+      await api.editMessage(issueId, msg.id, formData);
+      setEditingMessageId(null);
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const handleAssign = async (value) => {
     try {
       await api.assignIssue(issueId, value || null);
@@ -185,22 +212,64 @@ export default function IssueDetailPage() {
                     background: msg.author_id === user.id ? '#e8f4fd' : '#f5f5f5',
                     padding: 10, borderRadius: 8
                   }}>
-                    <div style={{ fontWeight: 'bold', fontSize: 13, marginBottom: 4 }}>{msg.author_name}</div>
-                    {msg.attachments.length > 0 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: msg.text ? 8 : 0, alignItems: 'center' }}>
-                        {msg.attachments.map(att => (
-                          <img
-                            key={att.id}
-                            src={`/${att.file_path}`}
-                            alt={att.file_name}
-                            title={`${att.file_name} — нажмите для увеличения`}
-                            style={{ maxWidth: '100%', maxHeight: 420, borderRadius: 8, cursor: 'zoom-in', border: '1px solid #e5e7eb', display: 'block' }}
-                            onClick={() => setLightbox({ url: `/${att.file_path}`, text: msg.text, author: msg.author_name, created_at: msg.created_at })}
-                          />
-                        ))}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <div style={{ fontWeight: 'bold', fontSize: 13 }}>{msg.author_name}</div>
+                      {msg.author_id === user.id && editingMessageId !== msg.id && (
+                        <button
+                          className="icon-btn"
+                          title="Редактировать сообщение"
+                          onClick={() => startEditMessage(msg)}
+                          style={{ padding: '2px 4px' }}
+                        >
+                          <PencilIcon size={13} />
+                        </button>
+                      )}
+                    </div>
+
+                    {editingMessageId === msg.id ? (
+                      <div style={{ minWidth: 320 }}>
+                        <MessageComposer
+                          text={editMsgText}
+                          setText={setEditMsgText}
+                          files={editMsgFiles}
+                          setFiles={setEditMsgFiles}
+                          onSubmit={() => saveEditMessage(msg)}
+                          submitLabel="Сохранить"
+                          sendOnEnter={false}
+                          existingAttachments={msg.attachments.filter(a => !editMsgRemove.includes(a.id))}
+                          onRemoveExisting={(id) => setEditMsgRemove(prev => [...prev, id])}
+                          placeholder="Текст сообщения..."
+                        />
+                        <div style={{ marginTop: 6 }}>
+                          <button className="btn-secondary btn-sm" onClick={() => setEditingMessageId(null)}>Отмена</button>
+                        </div>
                       </div>
+                    ) : (
+                      <>
+                        {msg.attachments.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: msg.text ? 8 : 0, alignItems: 'center' }}>
+                            {msg.attachments.map(att => (
+                              <img
+                                key={att.id}
+                                src={`/${att.file_path}`}
+                                alt={att.file_name}
+                                title={`${att.file_name} — нажмите для увеличения`}
+                                style={{ maxWidth: '100%', maxHeight: 420, borderRadius: 8, cursor: 'zoom-in', border: '1px solid #e5e7eb', display: 'block' }}
+                                onClick={() => setLightbox({ url: `/${att.file_path}`, text: msg.text, author: msg.author_name, created_at: msg.created_at })}
+                              />
+                            ))}
+                          </div>
+                        )}
+                        {msg.text && (
+                          <div
+                            className="msg-text"
+                            style={{ whiteSpace: 'pre-wrap' }}
+                            dangerouslySetInnerHTML={{ __html: renderFormatted(msg.text) }}
+                          />
+                        )}
+                      </>
                     )}
-                    {msg.text && <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>}
+
                     <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>{formatDateTime(msg.created_at)}</div>
                   </div>
                 </div>

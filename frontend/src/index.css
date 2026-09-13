@@ -95,6 +95,30 @@ button:disabled {
   color: #c0392b;
 }
 
+/* ---------- Toolbar (formatting) ---------- */
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 28px;
+  padding: 0 6px;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.tool-btn:hover {
+  background: #e5e7eb;
+}
+
+/* Formatted message content */
+.msg-text a {
+  color: #2980b9;
+  text-decoration: underline;
+}
+
 /* ---------- Inputs ---------- */
 input, select, textarea {
   border: 1px solid #d1d5db;

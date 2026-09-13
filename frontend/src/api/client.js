@@ -108,6 +108,17 @@ export const api = {
       return data;
     }),
 
+  editMessage: (issueId, messageId, formData) =>
+    fetch(`${API_URL}/issues/${issueId}/messages/${messageId}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      body: formData
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }),
+
   assignIssue: (id, assigned_to) =>
     request(`/issues/${id}/assign`, { method: 'PATCH', body: JSON.stringify({ assigned_to }) }),
 

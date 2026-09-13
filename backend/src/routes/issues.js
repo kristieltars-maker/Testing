@@ -471,6 +471,65 @@ router.post('/:id/messages', upload.array('attachments', 10), (req, res) => {
   res.json({ issue: getOne(updatedResult) });
 });
 
+// Редактирование своего сообщения (текст и/или замена скриншотов)
+router.patch('/:id/messages/:messageId', upload.array('attachments', 10), (req, res) => {
+  const { text, remove_attachment_ids } = req.body;
+  const issueId = req.params.id;
+  const messageId = req.params.messageId;
+
+  const db = getDb();
+  const issue = getOne(db.exec('SELECT * FROM issues WHERE id = ?', [issueId]));
+  if (!issue) {
+    return res.status(404).json({ error: 'Issue not found' });
+  }
+
+  if (!checkProjectAccess(issue.project_id, req.user.id, req.user.role)) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  const message = getOne(db.exec('SELECT * FROM issue_messages WHERE id = ? AND issue_id = ?', [messageId, issueId]));
+  if (!message) {
+    return res.status(404).json({ error: 'Message not found' });
+  }
+
+  if (message.is_system) {
+    return res.status(400).json({ error: 'Системные сообщения нельзя редактировать' });
+  }
+
+  if (message.author_id !== req.user.id) {
+    return res.status(403).json({ error: 'Можно редактировать только свои сообщения' });
+  }
+
+  if (text !== undefined) {
+    db.run('UPDATE issue_messages SET text = ? WHERE id = ?', [text, message.id]);
+  }
+
+  if (remove_attachment_ids) {
+    const ids = String(remove_attachment_ids).split(',').map(s => s.trim()).filter(Boolean);
+    for (const aid of ids) {
+      const att = getOne(db.exec('SELECT * FROM issue_attachments WHERE id = ? AND message_id = ?', [aid, message.id]));
+      if (att) {
+        deleteUploadedFiles([att.file_path]);
+        db.run('DELETE FROM issue_attachments WHERE id = ?', [aid]);
+      }
+    }
+  }
+
+  if (req.files && req.files.length > 0) {
+    for (const file of req.files) {
+      const relativePath = `uploads/${issue.project_id}/${file.filename}`;
+      db.run(
+        'INSERT INTO issue_attachments (message_id, file_path, file_name) VALUES (?, ?, ?)',
+        [message.id, relativePath, decodeFileName(file.originalname)]
+      );
+    }
+  }
+
+  db.run("UPDATE issues SET updated_at = datetime('now') WHERE id = ?", [issueId]);
+  saveDatabase();
+  res.json({ ok: true });
+});
+
 router.patch('/:id/assign', (req, res) => {
   const { assigned_to } = req.body;
   const issueId = req.params.id;
