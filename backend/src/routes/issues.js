@@ -530,6 +530,47 @@ router.patch('/:id/messages/:messageId', upload.array('attachments', 10), (req, 
   res.json({ ok: true });
 });
 
+// Удаление своего сообщения
+router.delete('/:id/messages/:messageId', (req, res) => {
+  const issueId = req.params.id;
+  const messageId = req.params.messageId;
+
+  const db = getDb();
+  const issue = getOne(db.exec('SELECT * FROM issues WHERE id = ?', [issueId]));
+  if (!issue) {
+    return res.status(404).json({ error: 'Issue not found' });
+  }
+
+  if (!checkProjectAccess(issue.project_id, req.user.id, req.user.role)) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  const message = getOne(db.exec('SELECT * FROM issue_messages WHERE id = ? AND issue_id = ?', [messageId, issueId]));
+  if (!message) {
+    return res.status(404).json({ error: 'Message not found' });
+  }
+
+  if (message.is_system) {
+    return res.status(400).json({ error: 'Системные сообщения нельзя удалять' });
+  }
+
+  if (message.author_id !== req.user.id) {
+    return res.status(403).json({ error: 'Можно удалять только свои сообщения' });
+  }
+
+  const files = db.exec('SELECT file_path FROM issue_attachments WHERE message_id = ?', [message.id]);
+  const filePaths = files.length > 0 ? files[0].values.map(r => r[0]) : [];
+
+  db.run('DELETE FROM issue_attachments WHERE message_id = ?', [message.id]);
+  db.run('DELETE FROM issue_messages WHERE id = ?', [message.id]);
+  db.run("UPDATE issues SET updated_at = datetime('now') WHERE id = ?", [issueId]);
+  saveDatabase();
+
+  deleteUploadedFiles(filePaths);
+
+  res.json({ ok: true });
+});
+
 router.patch('/:id/assign', (req, res) => {
   const { assigned_to } = req.body;
   const issueId = req.params.id;

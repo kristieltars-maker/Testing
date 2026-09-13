@@ -119,6 +119,9 @@ export const api = {
       return data;
     }),
 
+  deleteMessage: (issueId, messageId) =>
+    request(`/issues/${issueId}/messages/${messageId}`, { method: 'DELETE' }),
+
   assignIssue: (id, assigned_to) =>
     request(`/issues/${id}/assign`, { method: 'PATCH', body: JSON.stringify({ assigned_to }) }),
 

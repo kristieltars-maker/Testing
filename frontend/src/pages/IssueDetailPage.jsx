@@ -148,6 +148,16 @@ export default function IssueDetailPage() {
     }
   };
 
+  const handleDeleteMessage = async (msg) => {
+    if (!confirm('Удалить сообщение? Действие необратимо.')) return;
+    try {
+      await api.deleteMessage(issueId, msg.id);
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const handleAssign = async (value) => {
     try {
       await api.assignIssue(issueId, value || null);
@@ -212,19 +222,7 @@ export default function IssueDetailPage() {
                     background: msg.author_id === user.id ? '#e8f4fd' : '#f5f5f5',
                     padding: 10, borderRadius: 8
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <div style={{ fontWeight: 'bold', fontSize: 13 }}>{msg.author_name}</div>
-                      {msg.author_id === user.id && editingMessageId !== msg.id && (
-                        <button
-                          className="icon-btn"
-                          title="Редактировать сообщение"
-                          onClick={() => startEditMessage(msg)}
-                          style={{ padding: '2px 4px' }}
-                        >
-                          <PencilIcon size={13} />
-                        </button>
-                      )}
-                    </div>
+                    <div style={{ fontWeight: 'bold', fontSize: 13, marginBottom: 4 }}>{msg.author_name}</div>
 
                     {editingMessageId === msg.id ? (
                       <div style={{ minWidth: 320 }}>
@@ -270,7 +268,27 @@ export default function IssueDetailPage() {
                       </>
                     )}
 
-                    <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>{formatDateTime(msg.created_at)}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 }}>
+                      <div style={{ fontSize: 11, color: '#999' }}>{formatDateTime(msg.created_at)}</div>
+                      {msg.author_id === user.id && editingMessageId !== msg.id && (
+                        <div style={{ display: 'flex', gap: 2 }}>
+                          <button
+                            className="icon-btn"
+                            title="Редактировать сообщение"
+                            onClick={() => startEditMessage(msg)}
+                          >
+                            <PencilIcon size={13} />
+                          </button>
+                          <button
+                            className="icon-btn danger"
+                            title="Удалить сообщение"
+                            onClick={() => handleDeleteMessage(msg)}
+                          >
+                            <TrashIcon size={13} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
