@@ -105,7 +105,7 @@ router.get('/:id', (req, res) => {
   });
 });
 
-router.post('/', requireRole('admin'), (req, res) => {
+router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const { name, client_name, platform, manager_id } = req.body;
 
   if (!name || !client_name) {
@@ -114,10 +114,12 @@ router.post('/', requireRole('admin'), (req, res) => {
 
   const db = getDb();
   const slug = makeUniqueSlug(db, slugify(name));
+  // Руководитель проекта создаёт проект — становится его руководителем
+  const manager = req.user.role === 'manager' ? req.user.id : (manager_id || null);
 
   db.run(
     'INSERT INTO projects (name, client_name, platform, created_by, slug, manager_id) VALUES (?, ?, ?, ?, ?, ?)',
-    [name, client_name, platform || 'ТВИН', req.user.id, slug, manager_id || null]
+    [name, client_name, platform || 'ТВИН', req.user.id, slug, manager]
   );
 
   const lastId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
@@ -127,13 +129,18 @@ router.post('/', requireRole('admin'), (req, res) => {
   res.status(201).json({ project: getOne(result) });
 });
 
-router.patch('/:id', requireRole('admin'), (req, res) => {
+router.patch('/:id', (req, res) => {
   const { name, client_name, platform, manager_id } = req.body;
 
   const db = getDb();
   const project = resolveProject(req.params.id);
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });
+  }
+
+  const isManager = project.manager_id === req.user.id;
+  if (req.user.role !== 'admin' && !isManager) {
+    return res.status(403).json({ error: 'Доступно только администратору или руководителю проекта' });
   }
 
   const updates = [];
@@ -147,7 +154,11 @@ router.patch('/:id', requireRole('admin'), (req, res) => {
   }
   if (client_name !== undefined) { updates.push('client_name = ?'); values.push(client_name); }
   if (platform !== undefined) { updates.push('platform = ?'); values.push(platform); }
-  if (manager_id !== undefined) { updates.push('manager_id = ?'); values.push(manager_id || null); }
+  // Менять руководителя проекта может только администратор
+  if (manager_id !== undefined && req.user.role === 'admin') {
+    updates.push('manager_id = ?');
+    values.push(manager_id || null);
+  }
 
   if (updates.length === 0) {
     return res.status(400).json({ error: 'No fields to update' });

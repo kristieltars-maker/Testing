@@ -103,7 +103,7 @@ export default function IssuesPage() {
           {project.manager_name && <div className="muted">Руководитель проекта: {project.manager_name}</div>}
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          {user.role === 'admin' && (
+          {(user.role === 'admin' || (user.role === 'manager' && project.manager_id === user.id)) && (
             <Link
               to={`/projects/${project.slug}/manage`}
               style={{

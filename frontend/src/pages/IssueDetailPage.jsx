@@ -134,14 +134,26 @@ export default function IssueDetailPage() {
     setEditMsgRemove([]);
   };
 
-  const saveEditMessage = async (msg) => {
+  const cancelEdit = () => {
+    setEditingMessageId(null);
+    setEditMsgText('');
+    setEditMsgFiles([]);
+    setEditMsgRemove([]);
+  };
+
+  const toggleEditRemove = (attId) => {
+    setEditMsgRemove(prev => prev.includes(attId) ? prev.filter(x => x !== attId) : [...prev, attId]);
+  };
+
+  const saveEditMessage = async () => {
+    if (!editingMessageId) return;
     try {
       const formData = new FormData();
       formData.append('text', editMsgText);
       if (editMsgRemove.length) formData.append('remove_attachment_ids', editMsgRemove.join(','));
       for (const f of editMsgFiles) formData.append('attachments', f);
-      await api.editMessage(issueId, msg.id, formData);
-      setEditingMessageId(null);
+      await api.editMessage(issueId, editingMessageId, formData);
+      cancelEdit();
       load();
     } catch (err) {
       alert(err.message);
@@ -219,53 +231,62 @@ export default function IssueDetailPage() {
                   </div>
                   <div style={{
                     maxWidth: msg.attachments.length > 0 ? '88%' : '70%',
-                    background: msg.author_id === user.id ? '#e8f4fd' : '#f5f5f5',
+                    background: editingMessageId === msg.id
+                      ? '#fff3cd'
+                      : (msg.author_id === user.id ? '#e8f4fd' : '#f5f5f5'),
+                    outline: editingMessageId === msg.id ? '1px solid #f0c36d' : 'none',
                     padding: 10, borderRadius: 8
                   }}>
                     <div style={{ fontWeight: 'bold', fontSize: 13, marginBottom: 4 }}>{msg.author_name}</div>
 
-                    {editingMessageId === msg.id ? (
-                      <div style={{ minWidth: 320 }}>
-                        <MessageComposer
-                          text={editMsgText}
-                          setText={setEditMsgText}
-                          files={editMsgFiles}
-                          setFiles={setEditMsgFiles}
-                          onSubmit={() => saveEditMessage(msg)}
-                          submitLabel="Сохранить"
-                          sendOnEnter={false}
-                          existingAttachments={msg.attachments.filter(a => !editMsgRemove.includes(a.id))}
-                          onRemoveExisting={(id) => setEditMsgRemove(prev => [...prev, id])}
-                          placeholder="Текст сообщения..."
-                        />
-                        <div style={{ marginTop: 6 }}>
-                          <button className="btn-secondary btn-sm" onClick={() => setEditingMessageId(null)}>Отмена</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        {msg.attachments.length > 0 && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: msg.text ? 8 : 0, alignItems: 'center' }}>
-                            {msg.attachments.map(att => (
+                    {msg.attachments.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: msg.text ? 8 : 0, alignItems: 'center' }}>
+                        {msg.attachments.map(att => {
+                          const removed = editingMessageId === msg.id && editMsgRemove.includes(att.id);
+                          return (
+                            <div key={att.id} style={{ position: 'relative', maxWidth: '100%' }}>
                               <img
-                                key={att.id}
                                 src={`/${att.file_path}`}
                                 alt={att.file_name}
-                                title={`${att.file_name} — нажмите для увеличения`}
-                                style={{ maxWidth: '100%', maxHeight: 420, borderRadius: 8, cursor: 'zoom-in', border: '1px solid #e5e7eb', display: 'block' }}
-                                onClick={() => setLightbox({ url: `/${att.file_path}`, text: msg.text, author: msg.author_name, created_at: msg.created_at })}
+                                title={editingMessageId === msg.id ? '' : `${att.file_name} — нажмите для увеличения`}
+                                style={{
+                                  maxWidth: '100%', maxHeight: 420, borderRadius: 8,
+                                  cursor: editingMessageId === msg.id ? 'default' : 'zoom-in',
+                                  border: '1px solid #e5e7eb', display: 'block',
+                                  opacity: removed ? 0.3 : 1
+                                }}
+                                onClick={() => {
+                                  if (editingMessageId !== msg.id) {
+                                    setLightbox({ url: `/${att.file_path}`, text: msg.text, author: msg.author_name, created_at: msg.created_at });
+                                  }
+                                }}
                               />
-                            ))}
-                          </div>
-                        )}
-                        {msg.text && (
-                          <div
-                            className="msg-text"
-                            style={{ whiteSpace: 'pre-wrap' }}
-                            dangerouslySetInnerHTML={{ __html: renderFormatted(msg.text) }}
-                          />
-                        )}
-                      </>
+                              {editingMessageId === msg.id && (
+                                <button
+                                  type="button"
+                                  title={removed ? 'Вернуть скриншот' : 'Убрать скриншот'}
+                                  onClick={() => toggleEditRemove(att.id)}
+                                  style={{
+                                    position: 'absolute', top: 6, right: 6, width: 26, height: 26,
+                                    padding: 0, borderRadius: '50%',
+                                    background: removed ? '#27ae60' : '#e74c3c',
+                                    color: '#fff', lineHeight: '22px', fontSize: 15
+                                  }}
+                                >
+                                  {removed ? '↺' : '×'}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {msg.text && (
+                      <div
+                        className="msg-text"
+                        style={{ whiteSpace: 'pre-wrap' }}
+                        dangerouslySetInnerHTML={{ __html: renderFormatted(msg.text) }}
+                      />
                     )}
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 }}>
@@ -297,19 +318,44 @@ export default function IssueDetailPage() {
             <div ref={bottomRef} />
           </div>
 
-          <MessageComposer
-            text={text}
-            setText={setText}
-            files={files}
-            setFiles={setFiles}
-            onSubmit={() => handleSend(null)}
-            submitLabel={sending ? 'Отправка...' : 'Отправить'}
-            disabled={sending || (!text && files.length === 0)}
-            sendOnEnter
-            placeholder="Написать сообщение... (Enter — отправить, Shift+Enter — новая строка)"
-            height={composerH}
-            onResizeStart={startResizeHeight}
-          />
+          {editingMessageId ? (
+            <>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: '#fff3cd', border: '1px solid #f0c36d', borderBottom: 'none',
+                borderRadius: '10px 10px 0 0', padding: '6px 12px', fontSize: 13, color: '#8a6d3b'
+              }}>
+                <span>✎ Редактирование сообщения</span>
+                <button className="icon-btn" title="Отменить редактирование" onClick={cancelEdit}>×</button>
+              </div>
+              <MessageComposer
+                text={editMsgText}
+                setText={setEditMsgText}
+                files={editMsgFiles}
+                setFiles={setEditMsgFiles}
+                onSubmit={saveEditMessage}
+                submitLabel="Сохранить"
+                sendOnEnter={false}
+                placeholder="Текст сообщения..."
+                height={composerH}
+                onResizeStart={startResizeHeight}
+              />
+            </>
+          ) : (
+            <MessageComposer
+              text={text}
+              setText={setText}
+              files={files}
+              setFiles={setFiles}
+              onSubmit={() => handleSend(null)}
+              submitLabel={sending ? 'Отправка...' : 'Отправить'}
+              disabled={sending || (!text && files.length === 0)}
+              sendOnEnter
+              placeholder="Написать сообщение... (Enter — отправить, Shift+Enter — новая строка)"
+              height={composerH}
+              onResizeStart={startResizeHeight}
+            />
+          )}
         </div>
 
         {/* Ручка изменения ширины чата */}

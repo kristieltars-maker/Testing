@@ -33,7 +33,7 @@ export default function ProjectsPage() {
     <div className="page">
       <div className="page-header">
         <div className="title">Проекты</div>
-        {user.role === 'admin' && (
+        {(user.role === 'admin' || user.role === 'manager') && (
           <button onClick={() => setShowForm(!showForm)}>+ Новый проект</button>
         )}
       </div>
@@ -78,12 +78,12 @@ export default function ProjectsPage() {
                 {p.open_issues_count} {plural(p.open_issues_count, ['открытое замечание', 'открытых замечания', 'открытых замечаний'])}
               </div>
             </Link>
-            {user.role === 'admin' && (
+            {(user.role === 'admin' || (user.role === 'manager' && p.manager_id === user.id)) && (
               <Link
                 to={`/projects/${p.slug}/manage`}
                 style={{ marginTop: 12, fontSize: 13, textDecoration: 'none' }}
               >
-                ⚙ Управление (боты, участники)
+                ⚙ Управление проектом
               </Link>
             )}
           </div>

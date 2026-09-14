@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client.js';
+import { useAuth } from '../contexts/AuthContext.jsx';
 
 const PROJECT_ROLE_LABELS = {
   tester: 'Тестировщик',
@@ -10,7 +11,9 @@ const PROJECT_ROLE_LABELS = {
 
 export default function ProjectManagePage() {
   const { projectId } = useParams();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const isAdmin = user.role === 'admin';
   const [project, setProject] = useState(null);
   const [projectForm, setProjectForm] = useState({ name: '', client_name: '', platform: '', manager_id: '' });
   const [bots, setBots] = useState([]);
@@ -24,7 +27,10 @@ export default function ProjectManagePage() {
   const [error, setError] = useState('');
 
   const load = () => {
-    Promise.all([api.getProject(projectId), api.getUsers()])
+    Promise.all([
+      api.getProject(projectId),
+      isAdmin ? api.getUsers() : Promise.resolve({ users: [] })
+    ])
       .then(([proj, users]) => {
         setProject(proj.project);
         setProjectForm({
@@ -35,7 +41,7 @@ export default function ProjectManagePage() {
         });
         setBots(proj.bots);
         setMembers(proj.members);
-        setAllUsers(users.users.filter(u => u.is_active));
+        setAllUsers((users.users || []).filter(u => u.is_active));
       })
       .finally(() => setLoading(false));
   };
@@ -46,7 +52,9 @@ export default function ProjectManagePage() {
     e.preventDefault();
     setError('');
     try {
-      const res = await api.updateProject(projectId, projectForm);
+      const payload = { ...projectForm };
+      if (!isAdmin) delete payload.manager_id;
+      const res = await api.updateProject(projectId, payload);
       alert('Проект сохранён');
       if (res.project.slug && res.project.slug !== projectId) {
         navigate(`/projects/${res.project.slug}/manage`, { replace: true });
@@ -112,7 +120,9 @@ export default function ProjectManagePage() {
       <Link to="/" style={{ color: '#3498db' }}>← Проекты</Link>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Управление: {project.name}</h1>
-        <button onClick={deleteProject} style={{ padding: '8px 16px', background: '#c0392b' }}>Удалить проект</button>
+        {isAdmin && (
+          <button onClick={deleteProject} style={{ padding: '8px 16px', background: '#c0392b' }}>Удалить проект</button>
+        )}
       </div>
 
       <section style={{ marginBottom: 30, padding: 15, border: '1px solid #eee', borderRadius: 8 }}>
@@ -126,6 +136,7 @@ export default function ProjectManagePage() {
         </form>
       </section>
 
+      {isAdmin && (
       <section style={{ marginBottom: 30 }}>
         <h2>Боты</h2>
         {bots.map(b => (
@@ -155,7 +166,9 @@ export default function ProjectManagePage() {
           <button type="submit" style={{ padding: '6px 12px' }}>Добавить</button>
         </form>
       </section>
+      )}
 
+      {isAdmin && (
       <section>
         <h2>Участники</h2>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
@@ -194,6 +207,7 @@ export default function ProjectManagePage() {
           <button type="submit" style={{ padding: '6px 12px' }}>Добавить</button>
         </form>
       </section>
+      )}
     </div>
   );
 }
