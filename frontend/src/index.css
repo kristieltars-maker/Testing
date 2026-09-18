@@ -1,3 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
 * {
   box-sizing: border-box;
 }
@@ -119,6 +124,20 @@ button:disabled {
   text-decoration: underline;
 }
 
+/* Цитата внутри сообщения (строки, начинающиеся с `> `) */
+.msg-quote-line {
+  display: inline-block;
+  border-left: 2px solid #94a3b8;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  margin: 1px 0;
+  color: #475569;
+  border-radius: 0 4px 4px 0;
+}
+.msg-text .msg-quote-line::before {
+  content: '';
+}
+
 /* ---------- Inputs ---------- */
 input, select, textarea {
   border: 1px solid #d1d5db;
@@ -143,6 +162,16 @@ input:focus, select:focus, textarea:focus {
   padding: 24px 20px 60px;
 }
 
+/* Расширенный контейнер для страниц с широкими таблицами (список замечаний). */
+.issues-page {
+  max-width: none;
+}
+
+/* Контейнер страницы «Пользователи» — шире базовой, но не во всю ширину. */
+.users-page {
+  max-width: 1600px;
+}
+
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -161,6 +190,23 @@ input:focus, select:focus, textarea:focus {
 .muted {
   color: #6b7280;
   font-size: 14px;
+}
+
+.home-link {
+  color: #6b7280;
+  font-size: 14px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.home-link:hover {
+  color: #3498db;
+}
+
+.home-link:focus-visible {
+  outline: 2px solid #3498db;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .card {
@@ -237,47 +283,7 @@ input:focus, select:focus, textarea:focus {
   padding: 48px 16px;
 }
 
-/* ---------- Modal ---------- */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(17, 24, 39, 0.5);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 48px 16px;
-  z-index: 1000;
-  overflow-y: auto;
-}
-
-.modal {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  width: 560px;
-  max-width: 100%;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.modal-close {
-  background: transparent;
-  color: #9ca3af;
-  font-size: 22px;
-  line-height: 1;
-  padding: 2px 8px;
-}
-.modal-close:hover {
-  background: #f3f4f6;
-  color: #374151;
-}
-
+/* ---------- Forms ---------- */
 .form-group {
   margin-bottom: 14px;
 }
@@ -294,15 +300,94 @@ input:focus, select:focus, textarea:focus {
   width: 100%;
 }
 
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
-}
-
 .file-hint {
   font-size: 13px;
   color: #6b7280;
   margin-top: 6px;
+}
+}
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 72.2% 50.6%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221.2 83.2% 53.3%;
+    --chart-1: 221.2 83.2% 53.3%;
+    --chart-2: 215 16% 47%;
+    --chart-3: 142 76% 36%;
+    --chart-4: 32 95% 44%;
+    --chart-5: 0 72.2% 50.6%;
+    --radius: 0.5rem;
+    --sidebar: 210 40% 98%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 221.2 83.2% 53.3%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 221.2 83.2% 53.3%;
+    --status-success: 142 76% 36%;
+    --status-warning: 32 95% 44%;
+    --status-danger: 0 72.2% 50.6%;
+    --status-info: 221.2 83.2% 53.3%;
+  }
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 15%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 50.6%;
+    --border: 216 34% 24%;
+    --input: 216 34% 24%;
+    --ring: 221.2 83.2% 53.3%;
+    --chart-1: 221.2 83.2% 53.3%;
+    --chart-2: 215 20% 65%;
+    --chart-3: 142 76% 36%;
+    --chart-4: 32 95% 44%;
+    --chart-5: 0 62.8% 50.6%;
+    --sidebar: 217 33% 17%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 221.2 83.2% 53.3%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 216 34% 24%;
+    --sidebar-ring: 221.2 83.2% 53.3%;
+    --status-success: 142 76% 36%;
+    --status-warning: 32 95% 44%;
+    --status-danger: 0 62.8% 50.6%;
+    --status-info: 221.2 83.2% 53.3%;
+  }
+}
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
