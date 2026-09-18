@@ -2,7 +2,7 @@
   "$schema": "https://opencode.ai/config.json",
   "agent": {
     "build": {
-      "model": "moonshot/kimi-k2.7-code",
+      "model": "opencode/kimi-k2.7-code",
       "tools": {
         "write": true,
         "edit": true,
@@ -16,13 +16,29 @@
         "bash": false
       }
     },
-    "orchestrator": { "mode": "primary" },
-    "explorer": { "mode": "subagent" },
-    "planner": { "mode": "subagent" },
-    "reviewer": { "mode": "subagent" },
-    "architect": { "mode": "subagent" },
-    "designer": { "mode": "subagent" },
-    "qa": { "mode": "subagent" },
-    "ui-polish-sol": { "mode": "subagent" }
+    "orchestrator": {
+      "mode": "primary"
+    },
+    "explorer": {
+      "mode": "subagent"
+    },
+    "planner": {
+      "mode": "subagent"
+    },
+    "reviewer": {
+      "mode": "subagent"
+    },
+    "architect": {
+      "mode": "subagent"
+    },
+    "designer": {
+      "mode": "subagent"
+    },
+    "qa": {
+      "mode": "subagent"
+    },
+    "ui-polish-sol": {
+      "mode": "subagent"
+    }
   }
 }
