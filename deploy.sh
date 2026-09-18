@@ -88,6 +88,12 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
+    # Internal API (loopback only)
+    location ^~ /api/internal/ {
+        deny all;
+        return 403;
+    }
+
     # Backend API
     location /api/ {
         proxy_pass http://127.0.0.1:3001;

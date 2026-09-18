@@ -2,6 +2,18 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
+function isAllowedNext(value) {
+  if (!value) return false;
+  let url;
+  try {
+    url = new URL(value, window.location.origin);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+  return url.hostname === 'bot-atelier.ru' || url.hostname.endsWith('.bot-atelier.ru');
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,6 +29,11 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
+      const next = new URLSearchParams(window.location.search).get('next');
+      if (isAllowedNext(next)) {
+        window.location.href = next;
+        return;
+      }
       navigate('/');
     } catch (err) {
       setError(err.message);

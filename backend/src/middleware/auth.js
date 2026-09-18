@@ -13,8 +13,8 @@ export function authMiddleware(req, res, next) {
            u.id, u.name, u.email, u.role, u.is_active
     FROM sessions s
     JOIN users u ON s.user_id = u.id
-    WHERE s.session_id = '${sessionId}' AND s.expires_at > datetime('now')
-  `);
+    WHERE s.session_id = ? AND s.expires_at > datetime('now')
+  `, [sessionId]);
 
   if (result.length === 0 || result[0].values.length === 0) {
     res.clearCookie('session_id');
@@ -36,6 +36,8 @@ export function authMiddleware(req, res, next) {
     email: session.email,
     role: session.role
   };
+
+  req.sessionId = sessionId;
 
   db.run(
     "UPDATE sessions SET expires_at = datetime('now', '+7 days') WHERE session_id = ?",

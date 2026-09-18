@@ -49,12 +49,17 @@ router.post('/login', loginLimiter, (req, res) => {
   );
   saveDatabase();
 
-  res.cookie('session_id', sessionId, {
+  const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000
-  });
+  };
+  if (process.env.COOKIE_DOMAIN) {
+    cookieOptions.domain = process.env.COOKIE_DOMAIN;
+  }
+
+  res.cookie('session_id', sessionId, cookieOptions);
 
   res.json({
     user: { id: user.id, name: user.name, email: user.email, role: user.role }
@@ -68,7 +73,16 @@ router.post('/logout', (req, res) => {
     db.run('DELETE FROM sessions WHERE session_id = ?', [sessionId]);
     saveDatabase();
   }
-  res.clearCookie('session_id');
+  const clearOptions = {
+    path: '/',
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production'
+  };
+  if (process.env.COOKIE_DOMAIN) {
+    clearOptions.domain = process.env.COOKIE_DOMAIN;
+  }
+
+  res.clearCookie('session_id', clearOptions);
   res.json({ ok: true });
 });
 

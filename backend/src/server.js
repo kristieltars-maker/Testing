@@ -6,6 +6,7 @@ import { dirname, join } from 'path';
 
 import { initDatabase } from './db/database.js';
 import authRoutes from './routes/auth.js';
+import internalRoutes from './routes/internal.js';
 import usersRoutes from './routes/users.js';
 import projectsRoutes from './routes/projects.js';
 import issuesRoutes from './routes/issues.js';
@@ -17,8 +18,22 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.PORTAL_URLS,
+]
+  .filter(Boolean)
+  .flatMap(value => value.split(',').map(item => item.trim()).filter(Boolean));
+
+if (allowedOrigins.length === 0) {
+  allowedOrigins.push('http://localhost:5173');
+}
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(null, false);
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -26,6 +41,7 @@ app.use(cookieParser());
 app.use('/uploads', express.static(join(__dirname, 'uploads')));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/internal', internalRoutes);
 
 app.use('/api/users', authMiddleware, usersRoutes);
 app.use('/api/projects', authMiddleware, projectsRoutes);
