@@ -1,5 +1,6 @@
 export const MENU_BUTTON_TEXT_PATTERN = /^\u2699\ufe0f\s*\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438/;
 export const NEW_SESSION_BUTTON_TEXT_PATTERN = /^\uD83C\uDD95\s+\u041d\u043e\u0432\u0430\u044f/;
+export const SESSIONS_BUTTON_TEXT_PATTERN = /^\uD83D\uDCC2\s*\u0412\u044b\u0431\u0440\u0430\u0442\u044c/;
 export const AGENT_MODE_BUTTON_TEXT_PATTERN = /^(📋|🛠️|💬|🔍|📝|📄|📦|🤖)\s.+\s(?:Mode|Agent)$/;
 export const MODEL_BUTTON_TEXT_PATTERN = /^🧠\s(?!.*\s(?:Mode|Agent)$)[\s\S]+$/;
 // Keep support for both legacy "💭" and current "💡" prefix.
@@ -13,6 +14,7 @@ const REPLY_KEYBOARD_BUTTON_TEXT_PATTERNS = [
     CONTEXT_BUTTON_TEXT_PATTERN,
     QUEUED_PROMPT_BUTTON_TEXT_PATTERN,
     NEW_SESSION_BUTTON_TEXT_PATTERN,
+    SESSIONS_BUTTON_TEXT_PATTERN,
 ];
 /**
  * Whether the text looks like a press on one of the reply-keyboard buttons

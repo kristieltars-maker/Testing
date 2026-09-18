@@ -40,6 +40,7 @@ export function createMainKeyboard(currentAgent, currentModel, contextInfo, vari
         keyboard.text(label).row();
     }
     keyboard.text("\uD83C\uDD95 \u041d\u043e\u0432\u0430\u044f \u0441\u0435\u0441\u0441\u0438\u044f \u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f").row();
+    keyboard.text("\uD83D\uDCC2 \u0412\u044b\u0431\u0440\u0430\u0442\u044c \u0441\u0435\u0441\u0441\u0438\u044e").row();
     keyboard.text("\u2699\ufe0f \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438").row();
     return keyboard.resized().persistent();
 }

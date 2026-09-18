@@ -13,7 +13,8 @@ import { showModelSelectionMenu } from "../menus/model-selection-menu.js";
 import { showVariantSelectionMenu } from "../menus/variant-selection-menu.js";
 import { showHubMenu } from "../menus/hub-menu.js";
 import { newCommand } from "../commands/new-command.js";
-import { AGENT_MODE_BUTTON_TEXT_PATTERN, CONTEXT_BUTTON_TEXT_PATTERN, MENU_BUTTON_TEXT_PATTERN, MODEL_BUTTON_TEXT_PATTERN, NEW_SESSION_BUTTON_TEXT_PATTERN, QUEUED_PROMPT_BUTTON_TEXT_PATTERN, VARIANT_BUTTON_TEXT_PATTERN, } from "../message-patterns.js";
+import { sessionsCommand } from "../commands/sessions-command.js";
+import { AGENT_MODE_BUTTON_TEXT_PATTERN, CONTEXT_BUTTON_TEXT_PATTERN, MENU_BUTTON_TEXT_PATTERN, MODEL_BUTTON_TEXT_PATTERN, NEW_SESSION_BUTTON_TEXT_PATTERN, QUEUED_PROMPT_BUTTON_TEXT_PATTERN, SESSIONS_BUTTON_TEXT_PATTERN, VARIANT_BUTTON_TEXT_PATTERN, } from "../message-patterns.js";
 import { promptQueue } from "../../app/managers/prompt-queue-manager.js";
 import { keyboardManager } from "../keyboards/keyboard-manager.js";
 import { findQueuedPromptByButtonLabel } from "../keyboards/queued-prompt-button.js";
@@ -118,6 +119,18 @@ export function registerMessageRouter(bot, deps) {
         }
         catch (err) {
             logger.error("[Bot] Error creating session from button:", err);
+        }
+    });
+    bot.hears(SESSIONS_BUTTON_TEXT_PATTERN, async (ctx) => {
+        logger.debug(`[Bot] Sessions button pressed: ${ctx.message?.text}`);
+        try {
+            if (await blockMenuWhileInteractionActive(ctx)) {
+                return;
+            }
+            await sessionsCommand(ctx);
+        }
+        catch (err) {
+            logger.error("[Bot] Error showing sessions from button:", err);
         }
     });
     bot.hears(MENU_BUTTON_TEXT_PATTERN, async (ctx) => {
