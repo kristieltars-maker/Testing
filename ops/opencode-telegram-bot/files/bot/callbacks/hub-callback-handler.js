@@ -8,6 +8,7 @@ import { buildProjectsMenuView } from "../menus/project-selection-menu.js";
 import { replyWithInlineMenu } from "../menus/inline-menu.js";
 import { HUB_CALLBACK } from "../menus/hub-menu.js";
 import { newCommand } from "../commands/new-command.js";
+import { helpCommand } from "../commands/help-command.js";
 import { logger } from "../../utils/logger.js";
 export async function handleHubCallback(ctx, deps) {
     const data = ctx.callbackQuery?.data || "";
@@ -19,6 +20,11 @@ export async function handleHubCallback(ctx, deps) {
                 bot: deps.bot,
                 ensureEventSubscription: deps.ensureEventSubscription,
             });
+            return true;
+        }
+        if (data === HUB_CALLBACK.commands) {
+            await ctx.deleteMessage().catch(() => { });
+            await helpCommand(ctx);
             return true;
         }
         if (data === HUB_CALLBACK.project) {
