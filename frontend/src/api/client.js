@@ -1,6 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3000/api');
+export const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3000/api');
 
-async function request(path, options = {}) {
+export async function request(path, options = {}) {
   const res = await fetch(`${API_URL}${path}`, {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...options.headers },
@@ -53,6 +53,9 @@ export const api = {
 
   getProject: (id) =>
     request(`/projects/${id}`),
+
+  getProjectUsers: (id) =>
+    request(`/projects/${id}/users`),
 
   createProject: (data) =>
     request('/projects', { method: 'POST', body: JSON.stringify(data) }),

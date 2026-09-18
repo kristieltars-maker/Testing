@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { plural } from '../utils/plural.js';
+import { usePageTitle } from '../utils/pageTitle.js';
 
 export default function ProjectsPage() {
+  usePageTitle('Проекты');
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);

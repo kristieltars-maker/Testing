@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import { ROLE_LABELS } from './constants/roles.js';
+import { PORTAL_URL } from './constants/ecosystem.js';
 import LoginPage from './pages/LoginPage.jsx';
 import ProjectsPage from './pages/ProjectsPage.jsx';
 import IssuesPage from './pages/IssuesPage.jsx';
@@ -12,8 +13,12 @@ import ProjectManagePage from './pages/ProjectManagePage.jsx';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <div className="empty">Загрузка...</div>;
-  if (!user) return <Navigate to="/login" />;
+  if (!user) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?next=${next}`} replace />;
+  }
   return children;
 }
 
@@ -39,12 +44,15 @@ function Layout({ children }) {
         top: 0,
         zIndex: 100
       }}>
-        <Link to="/" style={{ textDecoration: 'none', color: '#111827', fontWeight: 'bold', fontSize: 18 }}>
-          Тестирование ботов
-          <span style={{ fontSize: 11, color: '#aaa', fontWeight: 'normal', marginLeft: 8 }}>
-            {typeof __BUILD_DATE__ !== 'undefined' ? new Date(__BUILD_DATE__).toLocaleString('ru-RU') : 'dev'}
-          </span>
-        </Link>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <a href={PORTAL_URL} className="home-link">← На главную</a>
+          <Link to="/" style={{ textDecoration: 'none', color: '#111827', fontWeight: 'bold', fontSize: 18 }}>
+            Тестирование ботов
+            <span style={{ fontSize: 11, color: '#aaa', fontWeight: 'normal', marginLeft: 8 }}>
+              {typeof __BUILD_DATE__ !== 'undefined' ? new Date(__BUILD_DATE__).toLocaleString('ru-RU') : 'dev'}
+            </span>
+          </Link>
+        </div>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
           {user.role === 'admin' && (
             <Link to="/admin/users" style={{ textDecoration: 'none' }}>Пользователи</Link>

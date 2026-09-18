@@ -1,41 +1,103 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../api/client.js';
 import { ROLE_LABELS, ROLE_OPTIONS } from '../constants/roles.js';
 import TrashIcon from '../components/TrashIcon.jsx';
+import PencilIcon from '../components/PencilIcon.jsx';
+import { usePageTitle } from '../utils/pageTitle.js';
+import { generateStrongPassword } from '../utils/password.js';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table';
+import { PROJECT_ROLE_OPTIONS } from '../constants/projectRoles.js';
 
-function PasswordInput({ value, onChange, placeholder, required, visible, onToggle, style }) {
+function PasswordInput({ value, onChange, placeholder, required, visible, onToggle, onGenerate }) {
   return (
-    <div style={{ position: 'relative', ...style }}>
-      <input
-        type={visible ? 'text' : 'password'}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        required={required}
-        style={{ width: '100%', padding: '6px 80px 6px 6px' }}
-      />
-      <button
-        type="button"
-        onClick={onToggle}
-        title={visible ? 'Скрыть пароль' : 'Показать пароль'}
-        style={{
-          position: 'absolute',
-          right: 4,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          background: 'transparent',
-          color: '#6b7280',
-          fontSize: 12,
-          padding: '4px 8px'
-        }}
-      >
-        {visible ? 'Скрыть' : 'Показать'}
-      </button>
-    </div>
+    <span className="flex min-w-0 items-start gap-2">
+      <span className="relative flex min-w-0 flex-1">
+        <Input
+          type={visible ? 'text' : 'password'}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          required={required}
+          className="pr-10"
+          autoComplete="new-password"
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          title={visible ? 'Скрыть пароль' : 'Показать пароль'}
+          aria-label={visible ? 'Скрыть пароль' : 'Показать пароль'}
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md bg-transparent p-1.5 text-foreground transition-colors hover:bg-accent"
+        >
+          {visible ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+              <line x1="1" y1="1" x2="23" y2="23" />
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          )}
+        </button>
+      </span>
+      {typeof onGenerate === 'function' && (
+        <Button type="button" variant="outline" size="sm" className="mt-0 shrink-0" onClick={onGenerate} title="Сгенерировать сложный пароль">
+          ⚡ Сгенерировать
+        </Button>
+      )}
+    </span>
   );
 }
 
+const EMPTY_ROLE = '__none__';
+
+function GlobalRoleSelect({ value, onChange }) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="w-48">
+        <SelectValue placeholder="Выберите роль" />
+      </SelectTrigger>
+      <SelectContent>
+        {ROLE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function MembershipRoleSelect({ value, onChange }) {
+  return (
+    <Select
+      value={value || EMPTY_ROLE}
+      onValueChange={next => onChange(next === EMPTY_ROLE ? '' : next)}
+    >
+      <SelectTrigger className="w-44">
+        <SelectValue placeholder="Не участвует" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={EMPTY_ROLE}>Не участвует</SelectItem>
+        {PROJECT_ROLE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
+
+
 export default function UsersPage() {
+  usePageTitle('Пользователи');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -44,12 +106,16 @@ export default function UsersPage() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', email: '', role: 'tester', password: '' });
   const [editError, setEditError] = useState('');
-  const [manageUser, setManageUser] = useState(null);
-  const [allProjects, setAllProjects] = useState([]);
-  const [manageRoles, setManageRoles] = useState({});
-  const [manageSaving, setManageSaving] = useState(false);
   const [showCreatePass, setShowCreatePass] = useState(false);
   const [showEditPass, setShowEditPass] = useState(false);
+
+  const [projectsForUserId, setProjectsForUserId] = useState(null);
+  const [pickerProjects, setPickerProjects] = useState([]);
+  const [pickerRoles, setPickerRoles] = useState({});
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerError, setPickerError] = useState(null);
+  const [pickerSaving, setPickerSaving] = useState(false);
+  const pickerRolesRef = useRef({});
 
   const load = () => {
     api.getUsers()
@@ -114,172 +180,293 @@ export default function UsersPage() {
     }
   };
 
-  const openManage = async (user) => {
-    setManageUser(user);
-    const [proj, mem] = await Promise.all([
-      api.getProjects(),
-      api.getUserMemberships(user.id)
-    ]);
-    setAllProjects(proj.projects);
-    const roles = {};
-    for (const m of mem.memberships) {
-      roles[m.project_id] = m.role_in_project;
+  const openProjectsPicker = async (user) => {
+    setProjectsForUserId(user.id);
+    setPickerLoading(true);
+    setPickerError(null);
+    try {
+      const [proj, mem] = await Promise.all([
+        api.getProjects(),
+        api.getUserMemberships(user.id)
+      ]);
+      setPickerProjects(proj.projects);
+      const roles = {};
+      for (const m of mem.memberships) {
+        roles[m.project_id] = m.role_in_project;
+      }
+      pickerRolesRef.current = roles;
+      setPickerRoles(roles);
+    } catch (err) {
+      setPickerError(err.message);
+    } finally {
+      setPickerLoading(false);
     }
-    setManageRoles(roles);
   };
 
-  const saveManage = async () => {
-    setManageSaving(true);
+  const changeProjectRole = async (user, projectId, role) => {
+    const next = { ...pickerRolesRef.current };
+    if (role) next[projectId] = role;
+    else delete next[projectId];
+    pickerRolesRef.current = next;
+    setPickerRoles(next);
+    const memberships = Object.entries(next)
+      .filter(([, roleIn]) => roleIn)
+      .map(([pid, roleIn]) => ({ project_id: Number(pid), role_in_project: roleIn }));
+    setPickerSaving(true);
     try {
-      const memberships = Object.entries(manageRoles)
-        .filter(([, role]) => role)
-        .map(([project_id, role_in_project]) => ({ project_id: Number(project_id), role_in_project }));
-      await api.setUserMemberships(manageUser.id, memberships);
-      setManageUser(null);
+      await api.setUserMemberships(user.id, memberships);
       load();
     } catch (err) {
-      alert(err.message);
+      setPickerError(err.message);
     } finally {
-      setManageSaving(false);
+      setPickerSaving(false);
     }
   };
 
-  if (loading) return <div>Загрузка...</div>;
+  if (loading) return <div className="px-4 py-12 text-center text-muted-foreground">Загрузка...</div>;
+
+  const currentPickerProjects = projectsForUserId ? pickerProjects : null;
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Пользователи</h1>
-        <button onClick={() => setShowForm(!showForm)} style={{ padding: '8px 16px' }}>
-          + Добавить пользователя
-        </button>
+    <div className="page users-page">
+      <div className="page-header">
+        <div>
+          <h1 className="text-h1">Пользователи</h1>
+          <div className="muted">Учётные записи экосистемы: единый вход во все подсистемы</div>
+        </div>
+        <Button size="sm" onClick={() => setShowForm(!showForm)}>+ Добавить пользователя</Button>
       </div>
 
       {showForm && (
-        <form onSubmit={handleCreate} style={{ marginBottom: 20, padding: 15, border: '1px solid #ccc' }}>
-          {error && <div style={{ color: 'red', marginBottom: 8 }}>{error}</div>}
-          <input placeholder="Имя" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required style={{ padding: 6, width: '100%', marginBottom: 8 }} />
-          <input placeholder="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required style={{ padding: 6, width: '100%', marginBottom: 8 }} />
-          <PasswordInput
-            placeholder="Пароль"
-            value={form.password}
-            onChange={e => setForm({ ...form, password: e.target.value })}
-            required
-            visible={showCreatePass}
-            onToggle={() => setShowCreatePass(!showCreatePass)}
-            style={{ marginBottom: 8 }}
-          />
-          <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} style={{ padding: 6, width: '100%', marginBottom: 4 }}>
-            {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <div className="muted" style={{ marginBottom: 8, fontSize: 12 }}>
-            Роль по умолчанию. В каждом проекте роль задаётся отдельно (кнопка «Проекты»): один и тот же пользователь может быть тестировщиком в одном проекте и скриптологом в другом.
-          </div>
-          <button type="submit" style={{ padding: '6px 16px' }}>Создать</button>
-        </form>
-      )}
-
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-            <th style={{ padding: 8 }}>Имя</th>
-            <th style={{ padding: 8 }}>Email</th>
-            <th style={{ padding: 8 }}>Роль (по умолч.)</th>
-            <th style={{ padding: 8 }}>Статус</th>
-            <th style={{ padding: 8 }}>Проекты</th>
-            <th style={{ padding: 8 }}>Действия</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map(u => (
-            editingId === u.id ? (
-              <tr key={u.id} style={{ borderBottom: '1px solid #eee', background: '#f9f9f9' }}>
-                <td colSpan={6} style={{ padding: 12 }}>
-                  <form onSubmit={handleEdit}>
-                    {editError && <div style={{ color: 'red', marginBottom: 8 }}>{editError}</div>}
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <input placeholder="Имя" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} required style={{ padding: 6, flex: 1, minWidth: 150 }} />
-                      <input placeholder="Email" type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} required style={{ padding: 6, flex: 1, minWidth: 150 }} />
-                      <select value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })} style={{ padding: 6 }}>
-                        {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                      </select>
-                      <PasswordInput
-                        placeholder="Новый пароль (опционально)"
-                        value={editForm.password}
-                        onChange={e => setEditForm({ ...editForm, password: e.target.value })}
-                        visible={showEditPass}
-                        onToggle={() => setShowEditPass(!showEditPass)}
-                        style={{ flex: 1, minWidth: 200 }}
-                      />
-                      <button type="submit" style={{ padding: '6px 16px' }}>Сохранить</button>
-                      <button type="button" onClick={() => setEditingId(null)} style={{ padding: '6px 16px', background: '#95a5a6' }}>Отмена</button>
-                    </div>
-                  </form>
-                </td>
-              </tr>
-            ) : (
-              <tr key={u.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: 8 }}>{u.name}</td>
-                <td style={{ padding: 8 }}>{u.email}</td>
-                <td style={{ padding: 8 }}>{ROLE_LABELS[u.role]}</td>
-                <td style={{ padding: 8 }}>
-                  <span style={{ color: u.is_active ? '#27ae60' : '#e74c3c' }}>
-                    {u.is_active ? 'Активен' : 'Деактивирован'}
-                  </span>
-                </td>
-                <td style={{ padding: 8, fontSize: 13 }}>{u.projects || '—'}</td>
-                <td style={{ padding: 8, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <button onClick={() => startEdit(u)} style={{ padding: '4px 10px', fontSize: 13 }}>Редактировать</button>
-                  <button onClick={() => openManage(u)} style={{ padding: '4px 10px', fontSize: 13, background: '#2980b9' }}>Проекты</button>
-                  <button onClick={() => toggleActive(u)} style={{ padding: '4px 10px', fontSize: 13, background: u.is_active ? '#e67e22' : '#27ae60' }}>
-                    {u.is_active ? 'Деактивировать' : 'Активировать'}
-                  </button>
-                  <button
-                    className="icon-btn danger"
-                    title="Удалить пользователя"
-                    onClick={() => handleDeleteUser(u)}
-                    style={{ border: '1px solid #e5e7eb' }}
-                  >
-                    <TrashIcon />
-                  </button>
-                </td>
-              </tr>
-            )
-          ))}
-        </tbody>
-      </table>
-
-      {manageUser && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', padding: 20, borderRadius: 8, width: 520, maxWidth: '90%', maxHeight: '80%', overflowY: 'auto' }}>
-            <h2>Проекты: {manageUser.name}</h2>
-            <p style={{ color: '#666', fontSize: 14 }}>
-              Отметьте проекты, в которых участвует пользователь, и укажите его роль в каждом.
-            </p>
-            {allProjects.map(p => (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #eee' }}>
-                <span>{p.name} <span style={{ color: '#999', fontSize: 12 }}>({p.client_name})</span></span>
-                <select
-                  value={manageRoles[p.id] || ''}
-                  onChange={e => setManageRoles({ ...manageRoles, [p.id]: e.target.value })}
-                  style={{ padding: 6 }}
-                >
-                  <option value="">Не участвует</option>
-                  <option value="tester">Тестировщик</option>
-                  <option value="developer">Скриптолог</option>
-                </select>
+        <Card className="mt-5">
+          <CardContent className="p-4">
+            <form onSubmit={handleCreate}>
+              {error && <div className="mb-3 text-sm text-destructive">{error}</div>}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  placeholder="Имя"
+                  value={form.name}
+                  onChange={e => setForm({ ...form, name: e.target.value })}
+                  required
+                />
+                <Input
+                  placeholder="Email"
+                  type="email"
+                  value={form.email}
+                  onChange={e => setForm({ ...form, email: e.target.value })}
+                  required
+                />
               </div>
-            ))}
-            {allProjects.length === 0 && <div style={{ color: '#999', padding: 10 }}>Проектов пока нет</div>}
-            <div style={{ marginTop: 20, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setManageUser(null)} style={{ padding: '6px 16px', background: '#95a5a6' }}>Отмена</button>
-              <button onClick={saveManage} disabled={manageSaving} style={{ padding: '6px 16px' }}>
-                {manageSaving ? 'Сохранение...' : 'Сохранить'}
-              </button>
-            </div>
-          </div>
-        </div>
+              <div className="mt-3">
+                <PasswordInput
+                  placeholder="Пароль"
+                  value={form.password}
+                  onChange={e => setForm({ ...form, password: e.target.value })}
+                  required
+                  visible={showCreatePass}
+                  onToggle={() => setShowCreatePass(!showCreatePass)}
+                  onGenerate={() => {
+                    setForm({ ...form, password: generateStrongPassword() });
+                    setShowCreatePass(true);
+                  }}
+                />
+              </div>
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <GlobalRoleSelect value={form.role} onChange={role => setForm({ ...form, role })} />
+                <div className="text-xs text-muted-foreground">
+                  Роль по умолчанию. В каждом проекте роль задаётся отдельно (кнопка «Проекты»).
+                </div>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <Button type="submit" size="sm">Создать</Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setShowForm(false)}>Отмена</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       )}
+
+      <Card className="mt-5 overflow-hidden shadow-sm">
+        <CardHeader className="flex-row items-center justify-between space-y-0 border-b p-4">
+          <CardTitle className="text-h3">Учётные записи</CardTitle>
+          <Badge variant="secondary" className="whitespace-nowrap px-2">{users.length}</Badge>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-64 px-4">Имя</TableHead>
+                <TableHead className="w-72 px-4">Email</TableHead>
+                <TableHead className="w-56 px-4">Роль (по умолч.)</TableHead>
+                <TableHead className="w-40 px-4">Статус</TableHead>
+                <TableHead className="px-4">Проекты</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map(u => (
+                editingId === u.id ? (
+                  <TableRow key={u.id} className="bg-accent/40">
+                    <TableCell colSpan={5} className="px-4 py-4">
+                      <form onSubmit={handleEdit}>
+                        {editError && <div className="mb-3 text-sm text-destructive">{editError}</div>}
+                        <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:flex-nowrap">
+                          <Input
+                            placeholder="Имя"
+                            value={editForm.name}
+                            onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                            required
+                            className="xl:w-56"
+                          />
+                          <Input
+                            placeholder="Email"
+                            type="email"
+                            value={editForm.email}
+                            onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                            required
+                            className="xl:w-64"
+                          />
+                          <GlobalRoleSelect value={editForm.role} onChange={role => setEditForm({ ...editForm, role })} />
+                          <PasswordInput
+                            placeholder="Новый пароль (опционально)"
+                            value={editForm.password}
+                            onChange={e => setEditForm({ ...editForm, password: e.target.value })}
+                            visible={showEditPass}
+                            onToggle={() => setShowEditPass(!showEditPass)}
+                            onGenerate={() => {
+                              setEditForm({ ...editForm, password: generateStrongPassword() });
+                              setShowEditPass(true);
+                            }}
+                          />
+                          <div className="flex gap-2 xl:ml-auto xl:flex-none">
+                            <Button type="submit" size="sm">Сохранить</Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setEditingId(null)}>Отмена</Button>
+                          </div>
+                        </div>
+                      </form>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <TableRow key={u.id} className={projectsForUserId === u.id ? 'bg-accent/30' : undefined}>
+                    <TableCell className="whitespace-nowrap px-4 font-medium text-foreground">{u.name}</TableCell>
+                    <TableCell className="px-4 text-muted-foreground">{u.email}</TableCell>
+                    <TableCell className="whitespace-nowrap px-4">{ROLE_LABELS[u.role]}</TableCell>
+                    <TableCell className="whitespace-nowrap px-4">
+                      <Badge
+                        variant="outline"
+                        className={u.is_active
+                          ? 'whitespace-nowrap border-status-success/20 bg-status-success/10 px-2 text-status-success'
+                          : 'whitespace-nowrap border-transparent bg-muted px-2 text-muted-foreground'}
+                      >
+                        {u.is_active ? 'Активен' : 'Деактивирован'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <Popover
+                          open={projectsForUserId === u.id}
+                          onOpenChange={open => (open ? openProjectsPicker(u) : setProjectsForUserId(null))}
+                        >
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className="flex max-w-xs cursor-pointer flex-col items-start bg-transparent text-left hover:bg-transparent"
+                              title="Нажмите, чтобы изменить роли в проектах"
+                            >
+                              <span className="text-sm text-foreground">
+                                {u.projects || '—'}
+                              </span>
+                              <span className="text-xs text-muted-foreground">изменить…</span>
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent align="end" className="max-h-96 w-80 overflow-y-auto">
+                            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Роли в проектах
+                            </div>
+                            {pickerError && (
+                              <div className="mb-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{pickerError}</div>
+                            )}
+                            {pickerLoading ? (
+                              <div className="py-6 text-center text-sm text-muted-foreground">Загрузка проектов…</div>
+                            ) : (
+                              <div className="flex flex-col gap-1">
+                                {(projectsForUserId ? pickerProjects : []).map(p => (
+                                  <div key={p.id} className="flex items-center justify-between gap-3 border-b py-2 last:border-b-0 hover:bg-accent/50">
+                                    <span className="flex min-w-0 flex-col">
+                                      <span className="truncate text-sm text-foreground">{p.name}</span>
+                                      <span className="truncate text-xs text-muted-foreground">{p.client_name}</span>
+                                    </span>
+                                    <MembershipRoleSelect
+                                      value={pickerRoles[p.id] || ''}
+                                      onChange={role => changeProjectRole(u, p.id, role)}
+                                    />
+                                  </div>
+                                ))}
+                                {pickerProjects.length === 0 && (
+                                  <div className="py-6 text-center text-sm text-muted-foreground">Проектов пока нет</div>
+                                )}
+                              </div>
+                            )}
+                            <div className="mt-3 flex items-center justify-between gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                {pickerSaving ? 'Сохранение…' : 'Изменения сохраняются сразу'}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setProjectsForUserId(null)}
+                              >
+                                Готово
+                              </Button>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                        <div className="flex flex-none items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 bg-transparent text-foreground hover:bg-transparent hover:text-primary hover:border-primary/40"
+                            title="Редактировать пользователя"
+                            aria-label={`Редактировать пользователя ${u.name}`}
+                            onClick={() => startEdit(u)}
+                          >
+                            <PencilIcon />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 bg-transparent text-foreground hover:bg-transparent hover:text-status-warning hover:border-status-warning/40"
+                            title={u.is_active ? 'Деактивировать пользователя' : 'Активировать пользователя'}
+                            aria-label={u.is_active ? `Деактивировать пользователя ${u.name}` : `Активировать пользователя ${u.name}`}
+                            onClick={() => toggleActive(u)}
+                          >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'block' }}>
+                              <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+                              <line x1="12" y1="2" x2="12" y2="12" />
+                            </svg>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 bg-transparent text-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
+                            title="Удалить пользователя"
+                            aria-label={`Удалить пользователя ${u.name}`}
+                            onClick={() => handleDeleteUser(u)}
+                          >
+                            <TrashIcon />
+                          </Button>
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              ))}
+            </TableBody>
+          </Table>
+          {users.length === 0 && (
+            <div className="px-4 py-12 text-center text-sm text-muted-foreground">Пользователей пока нет</div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
