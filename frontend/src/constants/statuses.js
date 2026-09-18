@@ -20,6 +20,41 @@ export const STATUS_COLORS = {
   reopened: '#9b59b6'
 };
 
+// Семантические токены темы (status-success / warning / danger / info),
+// которые использую все новые экраны (список замечаний, карточки, кнопки смены статуса).
+export const STATUS_TOKEN = {
+  new: 'info',
+  in_progress: 'info',
+  clarification: 'warning',
+  waiting: 'warning',
+  done: 'success',
+  cancelled: 'neutral',
+  rejected: 'danger',
+  reopened: 'warning'
+};
+
+const TOKEN_BADGE_CLASSES = {
+  success: 'border-status-success/20 bg-status-success/10 text-status-success',
+  warning: 'border-status-warning/20 bg-status-warning/10 text-status-warning',
+  danger: 'border-status-danger/20 bg-status-danger/10 text-status-danger',
+  info: 'border-status-info/20 bg-status-info/10 text-status-info',
+  neutral: 'bg-muted text-muted-foreground'
+};
+
+const TOKEN_PILL_CLASSES = {
+  success: 'border-status-success/30 bg-status-success/10 text-status-success hover:bg-status-success/20 hover:border-status-success/40',
+  warning: 'border-status-warning/30 bg-status-warning/10 text-status-warning hover:bg-status-warning/20 hover:border-status-warning/40',
+  danger: 'border-status-danger/30 bg-status-danger/10 text-status-danger hover:bg-status-danger/20 hover:border-status-danger/40',
+  info: 'border-status-info/30 bg-status-info/10 text-status-info hover:bg-status-info/20 hover:border-status-info/40',
+  neutral: 'bg-muted text-muted-foreground hover:bg-muted/70 hover:border-border'
+};
+
+export const STATUS_BADGE_CLASS = statusId =>
+  TOKEN_BADGE_CLASSES[STATUS_TOKEN[statusId]] || TOKEN_BADGE_CLASSES.neutral;
+
+export const STATUS_PILL_BUTTON_CLASS = statusId =>
+  TOKEN_PILL_CLASSES[STATUS_TOKEN[statusId]] || TOKEN_PILL_CLASSES.neutral;
+
 export const STATUS_DESCRIPTIONS = {
   new: 'Выставляется автоматически. Означает, что замечание создано и скриптолог ещё не взял его в работу.',
   in_progress: 'Замечание взято в работу скриптологом. Выставляется автоматически: при первом входе ответственного скриптолога в задачу и после ответа тестировщика в тикете со статусом «На уточнении». Также выставляется вручную, когда скриптолог получил ответ от Заказчика и продолжает работу.',

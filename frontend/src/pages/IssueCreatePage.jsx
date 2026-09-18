@@ -2,14 +2,16 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { STATUS_LABELS, STATUS_COLORS, STATUS_DESCRIPTIONS } from '../constants/statuses.js';
+import { STATUS_LABELS, STATUS_DESCRIPTIONS, STATUS_BADGE_CLASS } from '../constants/statuses.js';
 import MessageComposer from '../components/MessageComposer.jsx';
+import { usePageTitle } from '../utils/pageTitle.js';
 
 export default function IssueCreatePage() {
   const { projectSlug } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [project, setProject] = useState(null);
+  usePageTitle(project?.name ? `${project.name} · Новое замечание` : 'Новое замечание');
   const [developers, setDevelopers] = useState([]);
   const [bots, setBots] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -119,7 +121,7 @@ export default function IssueCreatePage() {
               <h2 style={{ margin: 0 }}>*</h2>
               <span
                 title={STATUS_DESCRIPTIONS.new}
-                style={{ background: STATUS_COLORS.new, color: '#fff', padding: '4px 12px', borderRadius: 999, fontWeight: 'bold', fontSize: 13, cursor: 'help' }}
+                className={`rounded-full border px-3 py-1 text-xs font-bold cursor-help ${STATUS_BADGE_CLASS('new')}`}
               >
                 {STATUS_LABELS.new}
               </span>

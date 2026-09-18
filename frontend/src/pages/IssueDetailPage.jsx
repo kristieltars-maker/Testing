@@ -2,18 +2,20 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { STATUS_LABELS, STATUS_COLORS, STATUS_DESCRIPTIONS } from '../constants/statuses.js';
+import { STATUS_LABELS, STATUS_DESCRIPTIONS, STATUS_BADGE_CLASS, STATUS_PILL_BUTTON_CLASS } from '../constants/statuses.js';
 import { formatDateTime } from '../utils/datetime.js';
 import { renderFormatted } from '../utils/format.js';
 import TrashIcon from '../components/TrashIcon.jsx';
 import PencilIcon from '../components/PencilIcon.jsx';
 import MessageComposer from '../components/MessageComposer.jsx';
+import { usePageTitle } from '../utils/pageTitle.js';
 
 export default function IssueDetailPage() {
   const { issueId, projectSlug } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [issue, setIssue] = useState(null);
+  usePageTitle(issue?.local_number ? `Замечание #${issue.local_number}` : 'Замечание');
   const [messages, setMessages] = useState([]);
   const [transitions, setTransitions] = useState([]);
   const [developers, setDevelopers] = useState([]);
@@ -26,6 +28,10 @@ export default function IssueDetailPage() {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ text: '', bot_id: '' });
   const [editingMessageId, setEditingMessageId] = useState(null);
+  const [quoteNonce, setQuoteNonce] = useState(0);
+  const composerRef = useRef(null);
+  const [replyTo, setReplyTo] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
   const [editMsgText, setEditMsgText] = useState('');
   const [editMsgFiles, setEditMsgFiles] = useState([]);
   const [editMsgRemove, setEditMsgRemove] = useState([]);
@@ -107,11 +113,25 @@ export default function IssueDetailPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [lightbox]);
 
+  useEffect(() => {
+    if (!contextMenu) return;
+    const onKey = (e) => { if (e.key === 'Escape') setContextMenu(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [contextMenu]);
+
   const handleSend = useCallback(async (statusChange) => {
     if (!text && files.length === 0 && !statusChange) return;
     setSending(true);
+    let prefix = '';
+    try {
+      prefix = buildReplyPrefix();
+    } catch {
+      prefix = '';
+    }
+    const finalText = prefix ? `${prefix}\n${text}` : text;
     const formData = new FormData();
-    if (text) formData.append('text', text);
+    if (finalText) formData.append('text', finalText);
     if (statusChange) formData.append('status_change', statusChange);
     for (const file of files) formData.append('attachments', file);
 
@@ -119,13 +139,14 @@ export default function IssueDetailPage() {
       await api.addMessage(issueId, formData);
       setText('');
       setFiles([]);
+      setReplyTo(null);
       load();
     } catch (err) {
       alert(err.message);
     } finally {
       setSending(false);
     }
-  }, [text, files, issueId]);
+  }, [text, files, issueId, replyTo]);
 
   const startEditMessage = (msg) => {
     setEditingMessageId(msg.id);
@@ -139,6 +160,68 @@ export default function IssueDetailPage() {
     setEditMsgText('');
     setEditMsgFiles([]);
     setEditMsgRemove([]);
+  };
+
+  // Ответ на конкретное сообщение (Telegram-style):
+  // — «шапка» ответа над редактором (как заблокированная),
+  // — в открытый текст ответ ничего не подмешивается,
+  // — при отправке к тексту добавляется markdown-блок цитаты, чтобы ссылка
+  //   на источник сохранилась в истории ленты.
+  const selectionInBubble = (msgId) => {
+    try {
+      const sel = window.getSelection();
+      const bubble = document.querySelector(`[data-msg-id="${msgId}"]`);
+      if (!bubble || !sel || sel.isCollapsed || sel.rangeCount === 0) return '';
+      const range = sel.getRangeAt(0);
+      if (!bubble.contains(range.commonAncestorContainer)) return '';
+      return sel.toString().replace(/\s+/g, ' ').trim();
+    } catch {
+      return '';
+    }
+  };
+
+  const clampLine = (value, max) => {
+    const str = String(value || '').replace(/\s+/g, ' ').trim();
+    return str.length > max ? str.slice(0, max).trimEnd() + '…' : str;
+  };
+
+  const cancelReply = () => setReplyTo(null);
+
+  const startReply = (msg, selection = '') => {
+    const mode = selection ? 'quote' : 'full';
+    setReplyTo({
+      msgId: msg.id,
+      authorName: msg.author_name || '',
+      mode,
+      quote: selection || String(msg.text || ''),
+    });
+    setQuoteNonce(n => n + 1);
+    requestAnimationFrame(() => {
+      composerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    });
+  };
+
+  const openMessageMenu = (event, msg) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenu({
+      msg,
+      hasSelection: Boolean(selectionInBubble(msg.id)),
+      x: event.clientX,
+      y: event.clientY,
+    });
+  };
+
+  const closeMessageMenu = () => setContextMenu(null);
+
+  const replyPrefixText = () => {
+    if (!replyTo) return '';
+    const isQuote = replyTo.mode === 'quote';
+    const label = isQuote ? 'Цитата' : 'Ответ';
+    const body = clampLine(replyTo.quote, 300);
+    if (!body) return '';
+    const lines = body.split('\n').map(line => `> ${line.replace(/^>\s*/, '')}`);
+    return `> **${label} @${replyTo.authorName}:**\n${lines.join('\n')}`;
   };
 
   const toggleEditRemove = (attId) => {
@@ -235,8 +318,9 @@ export default function IssueDetailPage() {
                       ? '#fff3cd'
                       : (msg.author_id === user.id ? '#e8f4fd' : '#f5f5f5'),
                     outline: editingMessageId === msg.id ? '1px solid #f0c36d' : 'none',
-                    padding: 10, borderRadius: 8
-                  }}>
+                    padding: 10, borderRadius: 8,
+                    cursor: 'default'
+                  }} data-msg-id={msg.id} onContextMenu={e => openMessageMenu(e, msg)}>
                     <div style={{ fontWeight: 'bold', fontSize: 13, marginBottom: 4 }}>{msg.author_name}</div>
 
                     {msg.attachments.length > 0 && (
@@ -342,19 +426,50 @@ export default function IssueDetailPage() {
               />
             </>
           ) : (
-            <MessageComposer
-              text={text}
-              setText={setText}
-              files={files}
-              setFiles={setFiles}
-              onSubmit={() => handleSend(null)}
-              submitLabel={sending ? 'Отправка...' : 'Отправить'}
-              disabled={sending || (!text && files.length === 0)}
-              sendOnEnter
-              placeholder="Написать сообщение... (Enter — отправить, Shift+Enter — новая строка)"
-              height={composerH}
-              onResizeStart={startResizeHeight}
-            />
+            <div ref={composerRef} style={{ flexShrink: 0 }}>
+              {replyTo && (
+                <div
+                  className="flex items-start gap-2 rounded-t-lg border-b-0 bg-background p-2.5 shadow-sm"
+                  style={{ borderLeft: `3px solid #3498db` }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3498db" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'block', marginTop: 2, flexShrink: 0 }}>
+                    <path d="M9 17l-5-5 5-5" />
+                    <path d="M4 12h9a5 5 0 0 1 5 5v2" />
+                  </svg>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-semibold" style={{ color: '#3498db' }}>
+                      {replyTo.mode === 'quote' ? 'Ответ на цитату' : 'Ответ на сообщение'} · {replyTo.authorName}
+                    </div>
+                    <div className="truncate text-sm text-muted-foreground">
+                      {replyTo.quote}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    title="Отменить ответ"
+                    aria-label="Отменить ответ"
+                    onClick={cancelReply}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              <MessageComposer
+                text={text}
+                setText={setText}
+                files={files}
+                setFiles={setFiles}
+                onSubmit={() => handleSend(null)}
+                submitLabel={sending ? 'Отправка...' : 'Отправить'}
+                disabled={sending || (!text && files.length === 0)}
+                sendOnEnter
+                placeholder="Написать сообщение... (Enter — отправить, Shift+Enter — новая строка)"
+                height={composerH}
+                onResizeStart={startResizeHeight}
+                focusSignal={quoteNonce}
+              />
+            </div>
           )}
         </div>
 
@@ -378,10 +493,7 @@ export default function IssueDetailPage() {
               <h2 style={{ margin: 0 }}>#{issue.local_number}</h2>
               <span
                 title={STATUS_DESCRIPTIONS[issue.status]}
-                style={{
-                  background: STATUS_COLORS[issue.status], color: '#fff',
-                  padding: '4px 12px', borderRadius: 999, fontWeight: 'bold', fontSize: 13, cursor: 'help'
-                }}
+                className={`rounded-full border px-3 py-1 text-xs font-bold cursor-help ${STATUS_BADGE_CLASS(issue.status)}`}
               >
                 {STATUS_LABELS[issue.status]}
               </span>
@@ -457,7 +569,7 @@ export default function IssueDetailPage() {
                     onClick={() => handleSend(status)}
                     disabled={sending}
                     title={`${STATUS_LABELS[status]} — ${STATUS_DESCRIPTIONS[status]}`}
-                    style={{ padding: '8px 14px', background: STATUS_COLORS[status], color: '#fff', border: 'none', borderRadius: 6 }}
+                    className={`rounded-md border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${STATUS_PILL_BUTTON_CLASS(status)}`}
                   >
                     {STATUS_LABELS[status]}
                   </button>
@@ -513,6 +625,71 @@ export default function IssueDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Контекстное меню сообщения (правый клик) */}
+      {contextMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-[60]"
+            onClick={closeMessageMenu}
+            onContextMenu={e => { e.preventDefault(); closeMessageMenu(); }}
+          />
+          <div
+            className="fixed z-[61] min-w-52 rounded-lg border bg-popover py-1 shadow-lg"
+            style={{
+              left: Math.min(contextMenu.x, window.innerWidth - 230),
+              top: Math.min(contextMenu.y, window.innerHeight - 170)
+            }}
+            onContextMenu={e => e.preventDefault()}
+          >
+            {contextMenu.hasSelection ? (
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                onClick={() => { closeMessageMenu(); startReply(contextMenu.msg, selectionInBubble(contextMenu.msg.id)); }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'block' }}>
+                  <path d="M9 17l-5-5 5-5" />
+                  <path d="M4 12h9a5 5 0 0 1 5 5v2" />
+                </svg>
+                Ответить с цитатой
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                onClick={() => { closeMessageMenu(); startReply(contextMenu.msg); }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'block' }}>
+                  <path d="M9 17l-5-5 5-5" />
+                  <path d="M4 12h9a5 5 0 0 1 5 5v2" />
+                </svg>
+                Ответить
+              </button>
+            )}
+            {contextMenu.msg.author_id === user.id && (
+              <>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                  onClick={() => { closeMessageMenu(); startEditMessage(contextMenu.msg); }}
+                >
+                  <PencilIcon size={13} />
+                  Редактировать
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10"
+                  onClick={() => { closeMessageMenu(); handleDeleteMessage(contextMenu.msg); }}
+                >
+                  <TrashIcon size={13} />
+                  Удалить
+                </button>
+              </>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

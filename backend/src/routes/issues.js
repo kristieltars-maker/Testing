@@ -5,6 +5,14 @@ import { join, dirname, extname } from 'path';
 import { fileURLToPath } from 'url';
 import { getDb, saveDatabase } from '../db/database.js';
 import { requireRole } from '../middleware/auth.js';
+import {
+  rowsToObjects,
+  getOne,
+  checkProjectAccess,
+  getProjectRole,
+  resolveProjectId,
+  decodeFileName
+} from '../utils/projectAccess.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -39,17 +47,6 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
   }
 });
-
-// Multer/busboy отдаёт имя файла в latin1; перекодируем в UTF-8,
-// чтобы русские названия не превращались в «кракозябры».
-function decodeFileName(name) {
-  try {
-    const decoded = Buffer.from(String(name), 'latin1').toString('utf8');
-    return decoded.includes('\uFFFD') ? String(name) : decoded;
-  } catch (e) {
-    return String(name);
-  }
-}
 
 const upload = multer({
   storage,
@@ -91,37 +88,6 @@ function setStatus(issueId, status, authorId, systemText) {
   if (systemText) addSystemMessage(issueId, authorId, systemText);
 }
 
-function rowsToObjects(result) {
-  if (result.length === 0) return [];
-  const columns = result[0].columns;
-  return result[0].values.map(row => {
-    const obj = {};
-    columns.forEach((col, i) => { obj[col] = row[i]; });
-    return obj;
-  });
-}
-
-function getOne(result) {
-  const rows = rowsToObjects(result);
-  return rows.length > 0 ? rows[0] : null;
-}
-
-function checkProjectAccess(projectId, userId, role) {
-  if (role === 'admin') return true;
-  const db = getDb();
-  const proj = db.exec('SELECT manager_id FROM projects WHERE id = ?', [projectId]);
-  if (proj.length > 0 && proj[0].values.length > 0 && proj[0].values[0][0] === userId) return true;
-  const result = db.exec('SELECT * FROM project_members WHERE project_id = ? AND user_id = ?', [projectId, userId]);
-  return result.length > 0 && result[0].values.length > 0;
-}
-
-function getProjectRole(projectId, userId) {
-  const db = getDb();
-  const result = db.exec('SELECT role_in_project FROM project_members WHERE project_id = ? AND user_id = ?', [projectId, userId]);
-  if (result.length === 0 || result[0].values.length === 0) return null;
-  return result[0].values[0][0];
-}
-
 function deleteUploadedFiles(filePaths) {
   for (const fp of filePaths) {
     try {
@@ -131,14 +97,6 @@ function deleteUploadedFiles(filePaths) {
       console.error('Failed to delete file', fp, e.message);
     }
   }
-}
-
-function resolveProjectId(identifier) {
-  if (identifier === undefined || identifier === null || identifier === '') return null;
-  const db = getDb();
-  if (/^\d+$/.test(String(identifier))) return Number(identifier);
-  const result = db.exec('SELECT id FROM projects WHERE slug = ?', [identifier]);
-  return result.length > 0 && result[0].values.length > 0 ? result[0].values[0][0] : null;
 }
 
 router.get('/', (req, res) => {
@@ -179,18 +137,21 @@ router.get('/', (req, res) => {
   }
 
   if (created_by) {
-    query += ' AND i.created_by = ?';
-    params.push(created_by);
+    const ids = String(created_by).split(',').filter(Boolean);
+    query += ` AND i.created_by IN (${ids.map(() => '?').join(',')})`;
+    params.push(...ids);
   }
 
   if (assigned_to) {
-    query += ' AND i.assigned_to = ?';
-    params.push(assigned_to);
+    const ids = String(assigned_to).split(',').filter(Boolean);
+    query += ` AND i.assigned_to IN (${ids.map(() => '?').join(',')})`;
+    params.push(...ids);
   }
 
   if (bot_id) {
-    query += ' AND i.bot_id = ?';
-    params.push(bot_id);
+    const ids = String(bot_id).split(',').filter(Boolean);
+    query += ` AND i.bot_id IN (${ids.map(() => '?').join(',')})`;
+    params.push(...ids);
   }
 
   if (search && String(search).trim()) {
@@ -336,8 +297,8 @@ router.post('/', upload.array('attachments', 10), (req, res) => {
 
   if (req.user.role !== 'admin') {
     const projectRole = getProjectRole(resolvedProjectId, req.user.id);
-    if (projectRole !== 'tester') {
-      return res.status(403).json({ error: 'Only testers can create issues' });
+    if (projectRole !== 'tester' && projectRole !== 'manager') {
+      return res.status(403).json({ error: 'Создавать замечания могут тестировщики или руководитель проекта' });
     }
   }
 

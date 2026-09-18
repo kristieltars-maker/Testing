@@ -36,6 +36,19 @@ function resolveProject(identifier) {
   return getOne(result);
 }
 
+// Права управления проектом: админ, назначенный руководитель
+// (projects.manager_id) или участник с ролью 'manager'.
+function canManageProject(project, user) {
+  if (user.role === 'admin') return true;
+  if (project.manager_id === user.id) return true;
+  const db = getDb();
+  const result = db.exec(
+    "SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ? AND role_in_project = 'manager'",
+    [project.id, user.id]
+  );
+  return result.length > 0 && result[0].values.length > 0;
+}
+
 router.get('/', (req, res) => {
   const db = getDb();
   let result;
@@ -138,8 +151,7 @@ router.patch('/:id', (req, res) => {
     return res.status(404).json({ error: 'Project not found' });
   }
 
-  const isManager = project.manager_id === req.user.id;
-  if (req.user.role !== 'admin' && !isManager) {
+  if (!canManageProject(project, req.user)) {
     return res.status(403).json({ error: 'Доступно только администратору или руководителю проекта' });
   }
 
@@ -248,7 +260,22 @@ router.delete('/:projectId/bots/:botId', requireRole('admin'), (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/:id/members', requireRole('admin'), (req, res) => {
+router.get('/:id/users', (req, res) => {
+  const db = getDb();
+  const project = resolveProject(req.params.id);
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+  if (!canManageProject(project, req.user)) {
+    return res.status(403).json({ error: 'Доступно только администратору или руководителю проекта' });
+  }
+  const result = db.exec(`
+    SELECT u.id, u.name, u.email FROM users u WHERE u.is_active = 1 ORDER BY u.name
+  `);
+  res.json({ users: rowsToObjects(result) });
+});
+
+router.post('/:id/members', (req, res) => {
   const { user_id, role_in_project } = req.body;
 
   if (!user_id || !role_in_project) {
@@ -263,6 +290,10 @@ router.post('/:id/members', requireRole('admin'), (req, res) => {
   const project = resolveProject(req.params.id);
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });
+  }
+
+  if (!canManageProject(project, req.user)) {
+    return res.status(403).json({ error: 'Доступно только администратору или руководителю проекта' });
   }
 
   const userResult = db.exec('SELECT id FROM users WHERE id = ? AND is_active = 1', [user_id]);
@@ -285,11 +316,14 @@ router.post('/:id/members', requireRole('admin'), (req, res) => {
   res.status(201).json({ ok: true });
 });
 
-router.delete('/:id/members/:userId', requireRole('admin'), (req, res) => {
+router.delete('/:id/members/:userId', (req, res) => {
   const db = getDb();
   const project = resolveProject(req.params.id);
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });
+  }
+  if (!canManageProject(project, req.user)) {
+    return res.status(403).json({ error: 'Доступно только администратору или руководителю проекта' });
   }
 
   db.run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [project.id, req.params.userId]);
@@ -298,11 +332,15 @@ router.delete('/:id/members/:userId', requireRole('admin'), (req, res) => {
   res.json({ ok: true });
 });
 
-router.delete('/:id', requireRole('admin'), (req, res) => {
+router.delete('/:id', (req, res) => {
   const db = getDb();
   const project = resolveProject(req.params.id);
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });
+  }
+  if (req.user.role !== 'admin') {
+    // Удалять проект может только администратор
+    return res.status(403).json({ error: 'Доступно только администратору' });
   }
   const projectId = project.id;
 

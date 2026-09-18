@@ -14,7 +14,8 @@ export default function MessageComposer({
   onResizeStart,
   showTools = true,
   existingAttachments = [],
-  onRemoveExisting
+  onRemoveExisting,
+  focusSignal = 0
 }) {
   const [drag, setDrag] = useState(false);
   const [previews, setPreviews] = useState([]);
@@ -26,6 +27,17 @@ export default function MessageComposer({
     setPreviews(urls);
     return () => urls.forEach(u => URL.revokeObjectURL(u.url));
   }, [files]);
+
+  useEffect(() => {
+    if (!focusSignal) return;
+    const raf = requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      try { el.setSelectionRange(el.value.length, el.value.length); } catch { /* поле не поддерживает выделение */ }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [focusSignal]);
 
   const addFiles = (list) => {
     const images = Array.from(list).filter(f => f.type.startsWith('image/'));
@@ -59,8 +71,8 @@ export default function MessageComposer({
     applyFormat('[', `](${url})`);
   };
 
-  const tools = (
-    <div style={{ display: 'flex', gap: 4, marginBottom: 6, flexWrap: 'wrap' }}>
+  const tools = showTools && (
+    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
       <button type="button" className="tool-btn" title="Полужирный" onClick={() => applyFormat('**', '**')}><b>Ж</b></button>
       <button type="button" className="tool-btn" title="Курсив" onClick={() => applyFormat('*', '*')}><i>К</i></button>
       <button type="button" className="tool-btn" title="Подчёркнутый" onClick={() => applyFormat('__', '__')}><u>П</u></button>
@@ -93,8 +105,6 @@ export default function MessageComposer({
         }}
       >
         <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff' }}>
-          {showTools && tools}
-
           {(existingAttachments.length > 0 || previews.length > 0) && (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
               {existingAttachments.map(att => (
@@ -149,21 +159,24 @@ export default function MessageComposer({
             style={{ width: '100%', height: height || undefined, minHeight: height ? undefined : 64, padding: 8, border: 'none', outline: 'none', resize: height ? 'none' : 'vertical', background: 'transparent', overflowY: 'auto' }}
           />
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-            <button
-              type="button"
-              className="btn-secondary btn-sm"
-              title="Прикрепить скриншот (можно перетащить или вставить Ctrl+V)"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              📎 Скриншот
-            </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 6 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              {tools}
+              <button
+                type="button"
+                className="btn-secondary btn-sm"
+                title="Прикрепить скриншот (можно перетащить или вставить Ctrl+V)"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                📎 Скриншот
+              </button>
+            </div>
             {submitLabel && (
               <button
                 type="button"
                 onClick={() => onSubmit?.()}
                 disabled={disabled}
-                style={{ padding: '8px 20px' }}
+                style={{ padding: '8px 20px', flexShrink: 0 }}
               >
                 {submitLabel}
               </button>

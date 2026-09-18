@@ -18,6 +18,16 @@ function link(url, label) {
 export function renderFormatted(text) {
   let s = escapeHtml(text);
 
+  // Цитаты: строки, начинающиеся с `> ` → визуальный блок цитаты.
+  s = s
+    .split('\n')
+    .map(line => {
+      if (!/^&gt;/.test(line)) return line;
+      const content = line.replace(/^&gt;\s?/, '');
+      return `<span class="msg-quote-line">${content}</span>`;
+    })
+    .join('\n');
+
   // Ссылки [текст](http(s)://...) — допускаем пробелы перед закрывающей скобкой
   s = s.replace(
     /\[([^\]]+)\]\(\s*(https?:\/\/[^\s)]+?)\s*\)/g,
