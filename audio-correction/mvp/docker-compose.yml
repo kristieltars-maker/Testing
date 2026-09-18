@@ -1,0 +1,18 @@
+# Original Acoustic Matcher MVP behind the ecosystem SSO gate.
+#
+# The container is the unmodified upstream MVP: it serves the original
+# `static/index.html` UI and its Python HTTP backend on port 8080.
+#
+# Run from this directory:
+#   docker compose up -d --build
+#
+# The port is published on loopback only. Public traffic reaches it through
+# nginx (audio-correction/deploy/nginx-mvp.conf), which performs the SSO
+# `auth_request` check and proxies to http://127.0.0.1:8081.
+services:
+  acoustic-matcher-mvp:
+    build: .
+    container_name: acoustic-matcher-mvp
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:8080"

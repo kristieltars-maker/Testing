@@ -15,6 +15,11 @@ backend/data/
 backend/src/uploads/*
 !backend/src/uploads/.gitkeep
 
+# audio-correction subsystem (original MVP behind SSO gate)
+acoustic_matcher_open_source_mvp-2/
+__pycache__/
+*.pyc
+
 # Environment
 .env
 .env.local

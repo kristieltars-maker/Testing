@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Acoustic Matcher · рабочее место менеджера</title>
+  <style>
+    :root{--bg:#f4f6f8;--card:#fff;--ink:#172033;--muted:#667085;--line:#dfe4ea;--blue:#1769e0;--blue2:#eaf2ff;--green:#12805c;--green2:#e8f7f1;--amber:#946200;--amber2:#fff6dd;--red:#b42318;--shadow:0 8px 30px #18243b0d}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+    header{background:#13213a;color:#fff;padding:25px 0}.wrap{max-width:1180px;margin:auto;padding:0 22px}h1{font-size:25px;margin:0 0 5px}header p{margin:0;color:#c6d2e4}
+    header .wrap{position:relative}.home-link{position:absolute;top:27px;right:22px;color:#dbe4f2;background:#1b2c4a;border:1px solid #3a5178;border-radius:8px;padding:6px 11px;font-size:13px;font-weight:700;line-height:1;text-decoration:none;white-space:nowrap}.home-link:hover{background:#243a61;color:#fff}
+    @media(max-width:520px){.home-link{position:static;display:inline-block;margin:0 0 10px}}
+    main{padding:24px 0 70px}.step{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:18px;box-shadow:var(--shadow)}
+    .step-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:18px}.num{width:32px;height:32px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font-weight:800;flex:0 0 auto}
+    h2{font-size:19px;margin:3px 0 2px}.sub{color:var(--muted);margin:0}.upload{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    input[type=file]{max-width:100%}button,.button{border:0;border-radius:9px;padding:10px 14px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:7px}
+    button.secondary,.button.secondary{background:#eef1f5;color:#26344d}button.ghost{background:#fff;color:var(--blue);border:1px solid #b8cff0}button:disabled{opacity:.45;cursor:not-allowed}
+    .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px;margin:14px 0}.metric{background:#f7f8fa;border-radius:10px;padding:10px}.metric b{display:block;font-size:17px}.metric span{font-size:12px;color:var(--muted)}
+    audio{width:100%;height:38px}.reference-grid{display:grid;grid-template-columns:minmax(260px,1fr) 2fr;gap:18px;align-items:center}.hidden{display:none!important}
+    .toolbar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:14px}.count{margin-left:auto;color:var(--muted)}
+    .files{display:grid;gap:12px}.file{border:1px solid var(--line);border-radius:13px;padding:14px}.file.selected{border-color:#83ace5;box-shadow:0 0 0 2px #e0ecfc}
+    .file-top{display:grid;grid-template-columns:28px minmax(180px,1fr) auto;gap:10px;align-items:center}.filename{font-weight:750;word-break:break-word}.badge{border-radius:999px;padding:5px 9px;background:var(--amber2);color:var(--amber);font-size:12px;font-weight:750}.badge.done{background:var(--green2);color:var(--green)}
+    .file-body{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:13px}.audio-box{background:#f8f9fb;border-radius:10px;padding:10px}.audio-box h4{margin:0 0 8px;font-size:13px}.mini{color:var(--muted);font-size:12px;margin-top:7px}.file-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+    .settings-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:18px}.settings{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:12px}
+    .control{border:1px solid var(--line);border-radius:11px;padding:11px;transition:.35s}.control.flash{border-color:#4b8be4;background:#eef5ff;box-shadow:0 0 0 2px #d7e7fc}.control label{display:flex;justify-content:space-between;gap:8px;font-weight:700;font-size:13px}.control input{width:100%;margin:8px 0 3px;padding:7px;border:1px solid #cbd3dd;border-radius:7px}.control small{display:block;color:var(--muted);line-height:1.3}
+    .macro-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:15px}.macro{background:#f5f8fd;border:1px solid #cbdcf3;border-radius:13px;padding:14px}.macro h3{font-size:15px;margin:0 0 4px}.macro p{font-size:12px;color:var(--muted);margin:0 0 10px}.macro input{width:100%;accent-color:var(--blue)}.scale{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}.macro-result{font-size:12px;margin-top:8px;color:#30415d}
+    .warning{background:var(--amber2);color:#6f4c00;padding:12px;border-radius:10px}.tip{background:var(--blue2);padding:13px;border-radius:10px}.tip b{display:block;margin-bottom:5px}.process-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px;padding-top:15px;border-top:1px solid var(--line)}
+    #message{position:fixed;right:18px;bottom:18px;max-width:420px;background:#15233b;color:#fff;padding:12px 15px;border-radius:10px;box-shadow:0 10px 35px #0003;z-index:10}.error{background:var(--red)!important}
+    .compare{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.compare div{font-size:12px;color:var(--muted)}.compare b{color:var(--ink)}
+    details.changes{margin-top:10px;border-top:1px solid var(--line);padding-top:9px}details.changes summary{cursor:pointer;font-weight:700;color:#36547c}.change-grid{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:5px;margin-top:9px}.change-item{background:#fff;border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:11px}.change-item b{display:block}.measure-change{width:100%;border-collapse:collapse;margin-top:10px;font-size:11px}.measure-change th,.measure-change td{border-bottom:1px solid var(--line);padding:5px;text-align:right}.measure-change th:first-child,.measure-change td:first-child{text-align:left}
+    @media(max-width:800px){.reference-grid,.settings-layout,.file-body,.macro-grid{grid-template-columns:1fr}.settings{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:520px){.settings{grid-template-columns:1fr}.file-top{grid-template-columns:28px 1fr}.file-top .badge{grid-column:2}.count{width:100%;margin:0}}
+  </style>
+</head>
+<body>
+<header><div class="wrap"><a class="home-link" href="https://bot-atelier.ru/">← На главную</a><h1>Acoustic Matcher</h1><p>Ручная подгонка записей под акустический образец</p></div></header>
+<main class="wrap">
+  <section class="step">
+    <div class="step-head"><div class="num">1</div><div><h2>Загрузите и проверьте образец</h2><p class="sub">Программа измерит характеристики, которые влияют на воспринимаемое сходство.</p></div></div>
+    <form id="reference-form" class="upload"><input id="reference-file" name="reference" type="file" accept="audio/*" required><button>Анализировать образец</button></form>
+    <div id="reference-result" class="hidden"></div>
+  </section>
+
+  <section id="targets-step" class="step">
+    <div class="step-head"><div class="num">2</div><div><h2>Загрузите рабочие файлы</h2><p class="sub">Можно прослушивать исходники, выбирать один тестовый файл или сразу несколько.</p></div></div>
+    <form id="targets-form" class="upload"><input id="target-files" name="targets" type="file" accept="audio/*" multiple required><button id="target-upload" disabled>Загрузить и сравнить</button></form>
+    <div id="files-area" class="hidden">
+      <div class="toolbar">
+        <button id="select-unprocessed" type="button" class="secondary">Выбрать необработанные</button>
+        <button id="clear-selection" type="button" class="secondary">Снять выделение</button>
+        <span id="selection-count" class="count"></span>
+      </div>
+      <div id="files" class="files"></div>
+    </div>
+  </section>
+
+  <section id="settings-step" class="step hidden">
+    <div class="step-head"><div class="num">3</div><div><h2>Настройте обработку</h2><p class="sub">Рекомендации — стартовая точка. Любой параметр можно изменить и повторно применить к исходнику.</p></div></div>
+    <div class="settings-layout">
+      <div>
+        <div class="macro-grid">
+          <div class="macro"><h3>Расстояние от микрофона</h3><p>Одновременно меняет громкость, эффект близости, разборчивость, высокие частоты и силу автоподгонки.</p><input id="distance-lever" type="range" min="0" max="100" step="1" value="50"><div class="scale"><span>Приблизить голос</span><span>Без коррекции</span><span>Отдалить голос</span></div><div id="distance-result" class="macro-result">Без дополнительной коррекции расстояния</div></div>
+          <div class="macro"><h3>Реверберация / эхо</h3><p>Влево осушает существующие хвосты, вправо добавляет помещение и связанные параметры отражений.</p><input id="reverb-lever" type="range" min="0" max="100" step="1" value="50"><div class="scale"><span>Меньше эха</span><span>Без коррекции</span><span>Больше эха</span></div><div id="reverb-result" class="macro-result">Без дополнительной коррекции реверберации</div></div>
+        </div>
+        <div id="settings" class="settings"></div>
+      </div>
+      <aside>
+        <div class="tip"><b id="recommendation-title">Рекомендуемые настройки</b><span id="recommendation-note">Выберите файл, чтобы загрузить его рекомендации.</span></div>
+        <div class="warning" style="margin-top:10px"><b>Важно:</b> добавление комнаты и шума по умолчанию выключено. Включайте их только если новый файл звучит заметно суше и чище образца.</div>
+        <button id="load-recommendation" type="button" class="ghost" style="margin-top:10px" disabled>Вернуть рекомендацию</button>
+      </aside>
+    </div>
+    <div class="process-bar">
+      <button id="process-selected" type="button">Обработать выбранные</button>
+      <a id="download-selected" class="button secondary hidden" href="#">Скачать обработанные ZIP</a>
+      <span class="sub">Повторная обработка всегда выполняется от исходного файла.</span>
+    </div>
+  </section>
+</main>
+<div id="message" class="hidden"></div>
+
+<script>
+const metricLabels={integrated_lufs:'Громкость, LUFS',true_peak_dbfs:'Пиковый уровень, dBFS',loudness_range_lu:'Разброс громкости, LU',speech_level_dbfs:'Уровень речи, dBFS',noise_level_dbfs:'Фон/хвосты, dBFS',estimated_snr_db:'Сигнал/фон, dB',dynamic_range_db:'Динамика речи, dB',rt60_proxy_s:'Затухание комнаты, с',wetness_proxy:'Доля помещения',spectral_distance_db:'Отличие тембра, dB',duration_s:'Длительность, с',sample_rate_khz:'Частота дискретизации, кГц',bit_depth:'Размер аудиосэмпла, бит'};
+const controls=[
+ ['target_lufs','Целевая громкость','LUFS образца; более отрицательное значение тише',-40,-8,0.1],
+ ['target_true_peak_dbfs','Ограничение пиков','Защищает от перегрузки; безопасно −1 dBFS',-9,-1,0.1],
+ ['target_lra_lu','Разброс громкости','Целевой диапазон громкости',1,18,0.1],
+ ['eq_strength','Автоподгонка тембра','0 — выключена, 1 — максимальное совпадение',0,1,0.05],
+ ['max_eq_db','Предел автокоррекции','Максимальное изменение отдельных частот',0.5,12,0.5],
+ ['dynamics_strength','Подгонка динамики','Выравнивает различия тихих и громких фрагментов',0,1,0.05],
+ ['dereverb_strength','Осушение реверберации','Подавляет устойчивые хвосты существующего помещения',0,0.85,0.05],
+ ['denoise_strength','Шумоподавление','Используйте только если рабочий файл шумнее образца',0,1,0.05],
+ ['room_strength','Добавить помещение','Может создать гул при наличии комнаты в исходнике',0,1,0.05],
+ ['early_reflection_strength','Ранние отражения','Отражения от ближайших поверхностей',0,1,0.05],
+ ['room_decay_scale','Время затухания','Множитель длительности хвоста помещения',0.5,1.8,0.05],
+ ['room_pre_delay_ms','Предзадержка комнаты','Пауза между прямым голосом и первыми отражениями, мс',0,120,1],
+ ['room_damping','Поглощение высоких','Чем выше, тем темнее хвост реверберации',0,1,0.05],
+ ['noise_strength','Добавить фон образца','Используйте только для слишком чистых записей',0,1,0.05],
+ ['low_tone_db','Низкие частоты','Теплее вправо, тоньше влево',-9,9,0.5],
+ ['presence_db','Разборчивость','Область голоса около 1,8 kHz',-9,9,0.5],
+ ['high_tone_db','Высокие частоты','Ярче вправо, мягче влево',-9,9,0.5]
+];
+const settingLabels=Object.fromEntries(controls.map(c=>[c[0],c[1]]));
+let state={reference:null,targets:[]},activeRecommendation=null,activeTargetId=null,selection=new Set();
+const $=id=>document.getElementById(id);
+function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function message(text,error=false){const el=$('message');el.textContent=text;el.className=error?'error':'';setTimeout(()=>el.classList.add('hidden'),4000);}
+async function api(url,options={}){const response=await fetch(url,options);let data;try{data=await response.json()}catch{data=null}if(!response.ok)throw new Error(data?.error||`HTTP ${response.status}`);return data;}
+function metricCards(metrics,keys=Object.keys(metricLabels)){return `<div class="metrics">${keys.filter(k=>metrics?.[k]!==undefined).map(k=>`<div class="metric"><b>${esc(metrics[k])}</b><span>${metricLabels[k]}</span></div>`).join('')}</div>`;}
+function renderReference(){const box=$('reference-result');if(!state.reference){box.classList.add('hidden');return}box.classList.remove('hidden');box.innerHTML=`<div class="reference-grid"><div><b>${esc(state.reference.filename)}</b><audio controls preload="metadata" src="${state.reference.audio_url}"></audio></div><div>${metricCards(state.reference.metrics)}</div></div>`;$('target-upload').disabled=false;}
+function selectedIds(){return [...selection].filter(id=>state.targets.some(t=>t.id===id));}
+function updateSelection(){const ids=selectedIds();$('selection-count').textContent=`Выбрано: ${ids.length}`;$('process-selected').disabled=!ids.length;const processed=ids.filter(id=>state.targets.find(t=>t.id===id)?.processed_url);if(processed.length){$('download-selected').classList.remove('hidden');$('download-selected').href='/api/export?ids='+encodeURIComponent(processed.join(','));}else $('download-selected').classList.add('hidden');document.querySelectorAll('.file').forEach(x=>x.classList.toggle('selected',ids.includes(x.dataset.id)));}
+function shortComparison(t){const m=t.metrics,r=state.reference.metrics;return `<div class="compare"><div>Громкость: <b>${m.integrated_lufs}</b> / ${r.integrated_lufs} LUFS</div><div>Тембр: отличие <b>${m.spectral_distance_db}</b> dB</div><div>Фон: <b>${m.noise_level_dbfs}</b> / ${r.noise_level_dbfs} dBFS</div><div>Комната: <b>${m.rt60_proxy_s}</b> / ${r.rt60_proxy_s} с</div></div>`;}
+function signedDelta(before,after){const delta=Number(after)-Number(before);return `${delta>0?'+':''}${delta.toFixed(2)}`;}
+function changesDetails(t){
+ if(!t.last_settings||!t.processed_metrics)return '';
+ const settings=Object.entries(t.last_settings).filter(([key])=>settingLabels[key]).map(([key,value])=>`<div class="change-item"><b>${esc(settingLabels[key])}</b>${esc(value)}</div>`).join('');
+ const keys=['integrated_lufs','true_peak_dbfs','loudness_range_lu','speech_level_dbfs','noise_level_dbfs','estimated_snr_db','dynamic_range_db','rt60_proxy_s','wetness_proxy','spectral_distance_db'];
+ const measured=keys.filter(k=>t.metrics[k]!==undefined&&t.processed_metrics[k]!==undefined).map(k=>`<tr><td>${metricLabels[k]}</td><td>${t.metrics[k]}</td><td>${t.processed_metrics[k]}</td><td>${signedDelta(t.metrics[k],t.processed_metrics[k])}</td></tr>`).join('');
+ return `<details class="changes"><summary>Все применённые настройки и фактические изменения</summary><div class="change-grid">${settings}</div><table class="measure-change"><thead><tr><th>Метрика</th><th>До</th><th>После</th><th>Δ</th></tr></thead><tbody>${measured}</tbody></table></details>`;
+}
+function renderTargets(){
+ const area=$('files-area'),container=$('files');
+ if(!state.targets.length){area.classList.add('hidden');$('settings-step').classList.add('hidden');return}
+ area.classList.remove('hidden');$('settings-step').classList.remove('hidden');
+ container.innerHTML=state.targets.map(t=>`<article class="file" data-id="${t.id}"><div class="file-top"><input class="target-check" type="checkbox" value="${t.id}" ${selection.has(t.id)?'checked':''}><div class="filename">${esc(t.filename)}</div><span class="badge ${t.version?'done':''}">${esc(t.status)}</span></div><div class="file-body"><div class="audio-box"><h4>Исходный файл</h4><audio controls preload="metadata" src="${t.original_url}"></audio>${shortComparison(t)}</div><div class="audio-box"><h4>После обработки</h4>${t.processed_url?`<audio controls preload="metadata" src="${t.processed_url}"></audio><div class="mini">LUFS ${t.processed_metrics.integrated_lufs}; отличие тембра ${t.processed_metrics.spectral_distance_db} dB</div>${changesDetails(t)}`:'<div class="mini">Ещё не обработан</div>'}</div></div><div class="file-actions"><button type="button" class="ghost recommendation" data-id="${t.id}">Загрузить рекомендации этого файла</button>${t.version?'<span class="mini">Параметры сохраняются. Можно изменить их и сразу повторно обработать исходник.</span>':''}</div></article>`).join('');
+ document.querySelectorAll('.target-check').forEach(x=>x.addEventListener('change',()=>{x.checked?selection.add(x.value):selection.delete(x.value);updateSelection()}));
+ document.querySelectorAll('.recommendation').forEach(x=>x.addEventListener('click',()=>useRecommendation(x.dataset.id,true)));
+ updateSelection();
+}
+function renderControls(){const host=$('settings');host.innerHTML=controls.map(([key,title,help,min,max,step])=>`<div class="control" data-control="${key}"><label for="set-${key}"><span>${title}</span><span id="value-${key}"></span></label><input id="set-${key}" data-key="${key}" type="number" min="${min}" max="${max}" step="${step}"><small>${help}</small></div>`).join('');document.querySelectorAll('#settings input').forEach(x=>x.addEventListener('input',()=>{$('value-'+x.dataset.key).textContent=x.value;}));}
+function setControls(values){controls.forEach(([key])=>{const input=$('set-'+key);if(values[key]!==undefined){input.value=values[key];$('value-'+key).textContent=values[key];}});}
+function getControls(){const result={};controls.forEach(([key])=>result[key]=Number($('set-'+key).value));return result;}
+function flashControls(keys){keys.forEach(key=>{const box=document.querySelector(`[data-control="${key}"]`);if(box){box.classList.remove('flash');void box.offsetWidth;box.classList.add('flash');setTimeout(()=>box.classList.remove('flash'),800)}});}
+function activeTarget(){return state.targets.find(t=>t.id===activeTargetId)||state.targets[0];}
+function updateDistanceLever(){
+ const target=activeTarget();if(!target||!state.reference)return;
+ const value=Number($('distance-lever').value),x=(50-value)/50,m=Math.abs(x),closer=x>=0;
+ const settings={target_lufs:Number((target.metrics.integrated_lufs+x*6*Math.pow(m,0.25)).toFixed(1)),eq_strength:Number(Math.min(1,(target.recommendation.eq_strength||0)+0.22*Math.pow(m,1.3)).toFixed(2)),dynamics_strength:Number(Math.min(1,0.15+0.30*Math.pow(m,1.2)).toFixed(2)),low_tone_db:Number(((closer?2.5:-2.0)*Math.pow(m,1.4)).toFixed(1)),presence_db:Number(((closer?1.3:-1.0)*Math.pow(m,1.2)).toFixed(1)),high_tone_db:Number(((closer?0.8:-1.8)*Math.pow(m,1.25)).toFixed(1))};
+ if(m<0.01){settings.target_lufs=target.recommendation.target_lufs;settings.eq_strength=target.recommendation.eq_strength;settings.dynamics_strength=target.recommendation.dynamics_strength;settings.low_tone_db=0;settings.presence_db=0;settings.high_tone_db=0;}
+ setControls(settings);flashControls(Object.keys(settings));$('distance-result').textContent=m<0.01?'Без дополнительной коррекции расстояния':`${closer?'Приближение':'Отдаление'}: ${Math.round(m*100)}% · связанные поля подсвечены`;
+}
+function updateReverbLever(){
+ const value=Number($('reverb-lever').value),x=(value-50)/50,m=Math.abs(x),wetter=x>0;let settings;
+ if(m<0.01)settings={dereverb_strength:0,room_strength:0,early_reflection_strength:0,room_decay_scale:1,room_pre_delay_ms:18,room_damping:0.55};
+ else if(wetter)settings={dereverb_strength:0,room_strength:Number((0.70*Math.pow(m,1.4)).toFixed(2)),early_reflection_strength:Number((0.80*Math.pow(m,1.2)).toFixed(2)),room_decay_scale:Number((0.80+0.70*Math.pow(m,1.3)).toFixed(2)),room_pre_delay_ms:Number((8+40*Math.pow(m,1.3)).toFixed(0)),room_damping:Number((0.72-0.35*m).toFixed(2))};
+ else settings={dereverb_strength:Number((0.65*Math.pow(m,1.55)).toFixed(2)),room_strength:0,early_reflection_strength:0,room_decay_scale:1,room_pre_delay_ms:18,room_damping:Number((0.55+0.25*m).toFixed(2))};
+ setControls(settings);flashControls(Object.keys(settings));$('reverb-result').textContent=m<0.01?'Без дополнительной коррекции реверберации':`${wetter?'Добавление помещения':'Осушение хвостов'}: ${Math.round(m*100)}% · связанные поля подсвечены`;
+}
+function useRecommendation(id,select=false){const target=state.targets.find(t=>t.id===id);if(!target)return;activeTargetId=id;activeRecommendation=target.recommendation;setControls(activeRecommendation);$('distance-lever').value=activeRecommendation.distance_lever??50;$('reverb-lever').value=activeRecommendation.reverb_lever??50;$('distance-result').textContent=`Рекомендуемое положение: ${activeRecommendation.distance_lever??50} из 100`;$('reverb-result').textContent=`Рекомендуемое положение: ${activeRecommendation.reverb_lever??50} из 100`;$('recommendation-title').textContent='Рекомендации для «'+target.filename+'»';$('recommendation-note').textContent='Рычажки связаны с детальными полями; после загрузки рекомендации каждое поле можно изменить вручную.';$('load-recommendation').disabled=false;if(select){selection.add(id);const check=document.querySelector(`.target-check[value="${id}"]`);if(check)check.checked=true;updateSelection();}$('settings-step').scrollIntoView({behavior:'smooth',block:'start'});}
+function render(){renderReference();renderTargets();if(state.targets.length&&!activeTargetId)useRecommendation(state.targets[0].id,false);}
+$('reference-form').addEventListener('submit',async e=>{e.preventDefault();const file=$('reference-file').files[0];if(!file)return;const data=new FormData();data.append('reference',file);try{message('Анализирую образец…');state=await api('/api/reference',{method:'POST',body:data});activeTargetId=null;selection.clear();render();message('Образец проанализирован')}catch(err){message(err.message,true)}});
+$('targets-form').addEventListener('submit',async e=>{e.preventDefault();const files=[...$('target-files').files];if(!files.length)return;const data=new FormData();files.forEach(f=>data.append('targets',f));try{message('Сравниваю рабочие файлы с образцом…');state=await api('/api/targets',{method:'POST',body:data});activeTargetId=null;render();message(`Загружено файлов: ${files.length}`)}catch(err){message(err.message,true)}});
+$('select-unprocessed').addEventListener('click',()=>{state.targets.forEach(t=>{if(!t.version)selection.add(t.id)});renderTargets();});
+$('clear-selection').addEventListener('click',()=>{selection.clear();renderTargets();});
+$('load-recommendation').addEventListener('click',()=>{if(activeTargetId)useRecommendation(activeTargetId,false)});
+$('process-selected').addEventListener('click',async()=>{const ids=selectedIds();if(!ids.length)return;const button=$('process-selected');button.disabled=true;try{message(`Обрабатываю файлов: ${ids.length}…`);state=await api('/api/process',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids,settings:getControls()})});render();message('Обработка завершена — прослушайте результат')}catch(err){message(err.message,true)}finally{button.disabled=false;updateSelection()}});
+$('distance-lever').addEventListener('input',updateDistanceLever);
+$('reverb-lever').addEventListener('input',updateReverbLever);
+document.addEventListener('play',e=>{if(e.target.tagName==='AUDIO')document.querySelectorAll('audio').forEach(a=>{if(a!==e.target)a.pause()})},true);
+renderControls();api('/api/state').then(s=>{state=s;render()}).catch(e=>message(e.message,true));
+</script>
+</body>
+</html>
