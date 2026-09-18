@@ -226,6 +226,26 @@ async function migrate() {
     db.run('CREATE INDEX IF NOT EXISTS idx_issues_assigned_to ON issues(assigned_to)');
   }
 
+  // Миграция: счётчик возвратов в работу (reopened_count).
+  const issuesCols = db.exec("PRAGMA table_info('issues')");
+  const hasReopenedCount = issuesCols.length > 0 && issuesCols[0].values.some(r => r[1] === 'reopened_count');
+  if (!hasReopenedCount) {
+    db.run('ALTER TABLE issues ADD COLUMN reopened_count INTEGER NOT NULL DEFAULT 0');
+  }
+
+  // Бэкфилл: пересчитываем reopened_count для уже существующих замечаний
+  // по системным сообщениям о переходе в статус "Вернули в работу".
+  db.run(`
+    UPDATE issues
+    SET reopened_count = (
+      SELECT COUNT(*)
+      FROM issue_messages
+      WHERE issue_messages.issue_id = issues.id
+        AND issue_messages.is_system = 1
+        AND issue_messages.text LIKE 'Статус изменён на "Вернули в работу"%'
+    )
+  `);
+
   saveDatabase();
   console.log('Database migrated successfully');
 }

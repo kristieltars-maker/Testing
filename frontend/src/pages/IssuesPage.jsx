@@ -444,6 +444,9 @@ export default function IssuesPage() {
                         title={STATUS_DESCRIPTIONS[issue.status]}
                       >
                         {STATUS_LABELS[issue.status]}
+                        {issue.reopened_count > 1 && (
+                          <span className="ml-1">×{issue.reopened_count}</span>
+                        )}
                       </Badge>
                     </TableCell>
                     <TableCell className="overflow-hidden text-ellipsis whitespace-nowrap px-4">{issue.creator_name}</TableCell>

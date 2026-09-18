@@ -1,0 +1,205 @@
+import { config } from "../../config.js";
+import { interactionManager } from "../../app/managers/interaction-manager.js";
+import { questionManager } from "../../app/managers/question-manager.js";
+import { t } from "../../i18n/index.js";
+import { logger } from "../../utils/logger.js";
+import { handleTaskTextInput } from "../commands/task-command.js";
+import { handleModelSearchTextInput, } from "../callbacks/model-selection-callback-handler.js";
+import { handleQuestionTextAnswer } from "../callbacks/question-callback-handler.js";
+import { handleRenameTextAnswer } from "../callbacks/rename-callback-handler.js";
+import { handleContextButtonPress } from "../menus/context-control-menu.js";
+import { showAgentSelectionMenu } from "../menus/agent-selection-menu.js";
+import { showModelSelectionMenu } from "../menus/model-selection-menu.js";
+import { showVariantSelectionMenu } from "../menus/variant-selection-menu.js";
+import { showHubMenu } from "../menus/hub-menu.js";
+import { newCommand } from "../commands/new-command.js";
+import { AGENT_MODE_BUTTON_TEXT_PATTERN, CONTEXT_BUTTON_TEXT_PATTERN, MENU_BUTTON_TEXT_PATTERN, MODEL_BUTTON_TEXT_PATTERN, NEW_SESSION_BUTTON_TEXT_PATTERN, QUEUED_PROMPT_BUTTON_TEXT_PATTERN, VARIANT_BUTTON_TEXT_PATTERN, } from "../message-patterns.js";
+import { promptQueue } from "../../app/managers/prompt-queue-manager.js";
+import { keyboardManager } from "../keyboards/keyboard-manager.js";
+import { findQueuedPromptByButtonLabel } from "../keyboards/queued-prompt-button.js";
+import { handleDocumentMessage } from "../handlers/document-handler.js";
+import { createMediaGroupAttachmentMiddleware } from "../handlers/media-group-handler.js";
+import { handlePhotoMessage } from "../handlers/photo-handler.js";
+import { queuePromptForMerging } from "../handlers/message-merger.js";
+import { handleCatalogTextArguments } from "../handlers/text-message-handler.js";
+import { handleVoiceMessage } from "../handlers/voice-handler.js";
+import { unknownCommandMiddleware } from "../middleware/unknown-command.js";
+import { getIncomingPrompt } from "../handlers/rich-message-handler.js";
+import { handleUnsupportedMessage } from "../handlers/unsupported-message-handler.js";
+async function blockMenuWhileInteractionActive(ctx) {
+    const activeInteraction = interactionManager.getSnapshot();
+    if (!activeInteraction) {
+        return false;
+    }
+    logger.debug(`[Bot] Blocking menu open while interaction active: kind=${activeInteraction.kind}, expectedInput=${activeInteraction.expectedInput}`);
+    await ctx.reply(t("interaction.blocked.finish_current"));
+    return true;
+}
+export function registerMessageRouter(bot, deps) {
+    bot.on("message:text", unknownCommandMiddleware);
+    bot.hears(QUEUED_PROMPT_BUTTON_TEXT_PATTERN, async (ctx) => {
+        logger.debug(`[Bot] Queued prompt button pressed: ${ctx.message?.text}`);
+        if (await blockMenuWhileInteractionActive(ctx)) {
+            return;
+        }
+        const label = ctx.message?.text;
+        const queuedPrompt = label ? findQueuedPromptByButtonLabel(label) : null;
+        if (queuedPrompt) {
+            promptQueue.removeById(queuedPrompt.id);
+            const keyboard = keyboardManager.getKeyboard();
+            await ctx.reply(t("queue.removed"), keyboard ? { reply_markup: keyboard } : {});
+            return;
+        }
+        // The queue was drained or cleared after Telegram rendered the keyboard the
+        // user pressed. Never fall through to the prompt handler: that would send
+        // the button label itself to OpenCode as a prompt.
+        const keyboard = keyboardManager.getKeyboard();
+        await ctx.reply(t("queue.not_found"), keyboard ? { reply_markup: keyboard } : {});
+    });
+    bot.hears(AGENT_MODE_BUTTON_TEXT_PATTERN, async (ctx) => {
+        logger.debug(`[Bot] Agent button pressed: ${ctx.message?.text}`);
+        try {
+            if (await blockMenuWhileInteractionActive(ctx)) {
+                return;
+            }
+            await showAgentSelectionMenu(ctx);
+        }
+        catch (err) {
+            logger.error("[Bot] Error showing agent menu:", err);
+            await ctx.reply(t("error.load_agents"));
+        }
+    });
+    bot.hears(MODEL_BUTTON_TEXT_PATTERN, async (ctx) => {
+        logger.debug(`[Bot] Model button pressed: ${ctx.message?.text}`);
+        try {
+            if (await blockMenuWhileInteractionActive(ctx)) {
+                return;
+            }
+            await showModelSelectionMenu(ctx);
+        }
+        catch (err) {
+            logger.error("[Bot] Error showing model menu:", err);
+            await ctx.reply(t("error.load_models"));
+        }
+    });
+    bot.hears(CONTEXT_BUTTON_TEXT_PATTERN, async (ctx) => {
+        logger.debug(`[Bot] Context button pressed: ${ctx.message?.text}`);
+        try {
+            if (await blockMenuWhileInteractionActive(ctx)) {
+                return;
+            }
+            await handleContextButtonPress(ctx);
+        }
+        catch (err) {
+            logger.error("[Bot] Error handling context button:", err);
+            await ctx.reply(t("error.context_button"));
+        }
+    });
+    bot.hears(VARIANT_BUTTON_TEXT_PATTERN, async (ctx) => {
+        logger.debug(`[Bot] Variant button pressed: ${ctx.message?.text}`);
+        try {
+            if (await blockMenuWhileInteractionActive(ctx)) {
+                return;
+            }
+            await showVariantSelectionMenu(ctx);
+        }
+        catch (err) {
+            logger.error("[Bot] Error showing variant menu:", err);
+            await ctx.reply(t("error.load_variants"));
+        }
+    });
+    bot.hears(NEW_SESSION_BUTTON_TEXT_PATTERN, async (ctx) => {
+        logger.debug(`[Bot] New session button pressed: ${ctx.message?.text}`);
+        try {
+            if (await blockMenuWhileInteractionActive(ctx)) {
+                return;
+            }
+            await newCommand(ctx, { bot, ensureEventSubscription: deps.ensureEventSubscription });
+        }
+        catch (err) {
+            logger.error("[Bot] Error creating session from button:", err);
+        }
+    });
+    bot.hears(MENU_BUTTON_TEXT_PATTERN, async (ctx) => {
+        logger.debug(`[Bot] Menu button pressed: ${ctx.message?.text}`);
+        try {
+            if (await blockMenuWhileInteractionActive(ctx)) {
+                return;
+            }
+            await showHubMenu(ctx);
+        }
+        catch (err) {
+            logger.error("[Bot] Error showing hub menu:", err);
+        }
+    });
+    bot.on("message:text", async (ctx, next) => {
+        const text = ctx.message?.text;
+        if (text) {
+            const isCommand = text.startsWith("/");
+            logger.debug(`[Bot] Received text message: ${isCommand ? `command="${text}"` : `prompt (length=${text.length})`}, chatId=${ctx.chat.id}`);
+        }
+        await next();
+    });
+    const voicePromptDeps = { bot, ensureEventSubscription: deps.ensureEventSubscription };
+    bot.on("message:voice", async (ctx) => {
+        logger.debug(`[Bot] Received voice message, chatId=${ctx.chat.id}`);
+        deps.setTelegramContext(bot, ctx.chat.id);
+        await handleVoiceMessage(ctx, voicePromptDeps);
+    });
+    bot.on("message:audio", async (ctx) => {
+        logger.debug(`[Bot] Received audio message, chatId=${ctx.chat.id}`);
+        deps.setTelegramContext(bot, ctx.chat.id);
+        await handleVoiceMessage(ctx, voicePromptDeps);
+    });
+    bot.on("message", createMediaGroupAttachmentMiddleware({
+        bot,
+        ensureEventSubscription: deps.ensureEventSubscription,
+    }));
+    bot.on("message:photo", async (ctx) => {
+        logger.debug(`[Bot] Received photo message, chatId=${ctx.chat.id}`);
+        deps.setTelegramContext(bot, ctx.chat.id);
+        await handlePhotoMessage(ctx, { bot, ensureEventSubscription: deps.ensureEventSubscription });
+    });
+    bot.on("message:document", async (ctx) => {
+        logger.debug(`[Bot] Received document message, chatId=${ctx.chat.id}`);
+        deps.setTelegramContext(bot, ctx.chat.id);
+        await handleDocumentMessage(ctx, { bot, ensureEventSubscription: deps.ensureEventSubscription });
+    });
+    bot.on("message:text", async (ctx) => {
+        const input = getIncomingPrompt(ctx);
+        if (!input) {
+            return;
+        }
+        const { text } = input;
+        deps.setTelegramContext(bot, ctx.chat.id);
+        if (text.startsWith("/")) {
+            return;
+        }
+        if (questionManager.isActive()) {
+            await handleQuestionTextAnswer(ctx);
+            return;
+        }
+        const handledTask = await handleTaskTextInput(ctx);
+        if (handledTask) {
+            return;
+        }
+        const handledModelSearchText = await handleModelSearchTextInput(ctx);
+        if (handledModelSearchText) {
+            return;
+        }
+        const handledRename = await handleRenameTextAnswer(ctx);
+        if (handledRename) {
+            return;
+        }
+        const promptDeps = { bot, ensureEventSubscription: deps.ensureEventSubscription };
+        const handledCatalogTextArgs = await handleCatalogTextArguments(ctx, promptDeps);
+        if (handledCatalogTextArgs) {
+            return;
+        }
+        queuePromptForMerging(ctx, input, promptDeps, config.bot.messageMergeWindowMs);
+        logger.debug(`[Bot] message:text handler completed (merge window=${config.bot.messageMergeWindowMs}ms)`);
+    });
+    bot.on("message", async (ctx) => {
+        await handleUnsupportedMessage(ctx);
+    });
+}

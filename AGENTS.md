@@ -311,3 +311,22 @@ MVP-контейнер, порты, env/секрет, выкат, вывод Nod
 
 Подробности: `.opencode/architecture/portal.md` (форма, структура
 репозитория, DNS/nginx/TLS, аутентификация, «На главную», риски).
+
+---
+
+## Auto-deploy to production (required)
+
+After you finish a task, always commit your changes so they reach production:
+
+```
+git add -A
+git commit -m "<short description>"
+```
+
+A cron job on the server deploys the latest commit to `/opt/testing-bots` within ~2 minutes:
+it builds the frontend, syncs `backend/src`, runs migrations and restarts PM2.
+
+Rules:
+- Work ONLY in this repository (`/srv/testing-bots`). Never edit `/opt/testing-bots` directly.
+- Always commit at the end of a task. Uncommitted work is NOT deployed.
+- Do not run `git push` unless explicitly asked.

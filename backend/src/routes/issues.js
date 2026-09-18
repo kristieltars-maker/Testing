@@ -407,8 +407,8 @@ router.post('/:id/messages', upload.array('attachments', 10), (req, res) => {
     }
 
     db.run(
-      "UPDATE issues SET status = ?, updated_at = datetime('now') WHERE id = ?",
-      [status_change, issueId]
+      "UPDATE issues SET status = ?, updated_at = datetime('now'), reopened_count = reopened_count + ? WHERE id = ?",
+      [status_change, status_change === 'reopened' ? 1 : 0, issueId]
     );
 
     const statusLabel = STATUS_LABELS[status_change] || status_change;

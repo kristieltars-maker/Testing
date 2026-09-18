@@ -4,10 +4,11 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import initSqlJs from 'sql.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const backendRoot = join(__dirname, '..', '..');
@@ -66,10 +67,11 @@ function findSetCookie(res, name) {
 describe('testing regression: projects/bots/issues CRUD', () => {
   let cookie;
   let tmpRoot;
+  let dbPath;
 
   before(async () => {
     tmpRoot = mkdtempSync(join(tmpdir(), 'testing-reg-'));
-    const dbPath = join(tmpRoot, 'app.db');
+    dbPath = join(tmpRoot, 'app.db');
     makeDb(dbPath);
     await startBackend(dbPath);
 
@@ -143,5 +145,100 @@ describe('testing regression: projects/bots/issues CRUD', () => {
     const detail = await api(`/api/issues/${created.id}`, { cookie });
     assert.equal(detail.status, 200);
     assert.equal((await detail.json()).issue.id, created.id);
+  });
+
+  test('reopened_count increments on each return to work', async () => {
+    const create = await api('/api/projects', {
+      method: 'POST', cookie, body: { name: 'QA Reopened Count', client_name: 'QA' }
+    });
+    const project = (await create.json()).project;
+
+    const form = new FormData();
+    form.append('project_id', String(project.id));
+    form.append('text', 'Замечание для проверки счётчика');
+    const issueRes = await api('/api/issues', { method: 'POST', cookie, form });
+    const issue = (await issueRes.json()).issue;
+
+    async function setStatus(issueId, status) {
+      const f = new FormData();
+      f.append('status_change', status);
+      const r = await api(`/api/issues/${issueId}/messages`, { method: 'POST', cookie, form: f });
+      assert.equal(r.status, 200);
+    }
+
+    async function getListedIssue() {
+      const r = await api(`/api/issues?project_id=${project.id}`, { cookie });
+      assert.equal(r.status, 200);
+      return (await r.json()).issues[0];
+    }
+
+    // Первый возврат в работу: счётчик = 1, в списке не показывается.
+    await setStatus(issue.id, 'done');
+    await setStatus(issue.id, 'reopened');
+    let listed = await getListedIssue();
+    assert.equal(listed.status, 'reopened');
+    assert.equal(listed.reopened_count, 1);
+
+    // Второй возврат в работу: счётчик = 2.
+    await setStatus(issue.id, 'done');
+    await setStatus(issue.id, 'reopened');
+    listed = await getListedIssue();
+    assert.equal(listed.status, 'reopened');
+    assert.equal(listed.reopened_count, 2);
+  });
+
+  test('reopened_count backfills from existing system messages', async () => {
+    const create = await api('/api/projects', {
+      method: 'POST', cookie, body: { name: 'QA Backfill', client_name: 'QA' }
+    });
+    const project = (await create.json()).project;
+
+    const form = new FormData();
+    form.append('project_id', String(project.id));
+    form.append('text', 'Замечание для проверки бэкфилла');
+    const issueRes = await api('/api/issues', { method: 'POST', cookie, form });
+    const issue = (await issueRes.json()).issue;
+
+    async function setStatus(issueId, status) {
+      const f = new FormData();
+      f.append('status_change', status);
+      const r = await api(`/api/issues/${issueId}/messages`, { method: 'POST', cookie, form: f });
+      assert.equal(r.status, 200);
+    }
+
+    await setStatus(issue.id, 'done');
+    await setStatus(issue.id, 'reopened');
+    await setStatus(issue.id, 'done');
+    await setStatus(issue.id, 'reopened');
+
+    // Обнуляем счётчик в БД напрямую (имитация старой БД без колонки / без инкремента).
+    const SQL = await initSqlJs();
+    let db = new SQL.Database(readFileSync(dbPath));
+    db.run('UPDATE issues SET reopened_count = 0 WHERE id = ?', [issue.id]);
+    writeFileSync(dbPath, Buffer.from(db.export()));
+    db.close();
+
+    // Останавливаем backend, чтобы миграция работала с файлом БД,
+    // а не с in-memory копией, которую держит запущенный процесс.
+    for (const c of children) { try { c.kill(); } catch { /* ignore */ } }
+    await sleep(300);
+
+    // Запускаем миграцию — она должна пересчитать reopened_count по системным сообщениям.
+    const migrateRes = spawnSync(process.execPath, ['src/db/migrate.js'], {
+      cwd: backendRoot,
+      env: { ...process.env, DB_PATH: dbPath },
+      encoding: 'utf8'
+    });
+    if (migrateRes.status !== 0) {
+      throw new Error(`migrate failed: ${migrateRes.stdout} ${migrateRes.stderr}`);
+    }
+
+    // Проверяем, что бэкфилл сработал, читая БД напрямую.
+    db = new SQL.Database(readFileSync(dbPath));
+    const row = db.exec('SELECT status, reopened_count FROM issues WHERE id = ?', [issue.id])[0]?.values?.[0];
+    db.close();
+    assert.ok(row);
+    assert.equal(row[0], 'reopened');
+    assert.equal(row[1], 2);
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import { ROLE_LABELS } from './constants/roles.js';
@@ -25,43 +25,78 @@ function ProtectedRoute({ children }) {
 function Layout({ children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isProjects = location.pathname === '/';
+  const [wide, setWide] = useState(() => window.innerWidth > 1380);
+
+  useEffect(() => {
+    const handleResize = () => setWide(window.innerWidth > 1380);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
 
+  const title = (
+    <Link to="/" style={{ textDecoration: 'none', color: '#111827', fontWeight: 'bold', fontSize: 18 }}>
+      Тестирование ботов
+      <span style={{ fontSize: 11, color: '#aaa', fontWeight: 'normal', marginLeft: 8 }}>
+        {typeof __BUILD_DATE__ !== 'undefined' ? new Date(__BUILD_DATE__).toLocaleString('ru-RU') : 'dev'}
+      </span>
+    </Link>
+  );
+
+  const homeLink = (
+    <a href={PORTAL_URL} className="home-link">← На главную</a>
+  );
+
   return (
     <div>
       <nav style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '12px 20px',
         borderBottom: '1px solid #e5e7eb',
         background: '#fff',
         position: 'sticky',
         top: 0,
         zIndex: 100
       }}>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          <a href={PORTAL_URL} className="home-link">← На главную</a>
-          <Link to="/" style={{ textDecoration: 'none', color: '#111827', fontWeight: 'bold', fontSize: 18 }}>
-            Тестирование ботов
-            <span style={{ fontSize: 11, color: '#aaa', fontWeight: 'normal', marginLeft: 8 }}>
-              {typeof __BUILD_DATE__ !== 'undefined' ? new Date(__BUILD_DATE__).toLocaleString('ru-RU') : 'dev'}
+        <div style={isProjects ? {
+          maxWidth: 1100,
+          margin: '0 auto',
+          padding: '12px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        } : {
+          padding: '12px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            {(!isProjects || !wide) && homeLink}
+            {title}
+          </div>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            {user.role === 'admin' && (
+              <Link to="/admin/users" style={{ textDecoration: 'none' }}>Пользователи</Link>
+            )}
+            <span className="muted">
+              {user.name} · {ROLE_LABELS[user.role] || user.role}
             </span>
-          </Link>
+            <button className="btn-secondary btn-sm" onClick={handleLogout}>Выход</button>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          {user.role === 'admin' && (
-            <Link to="/admin/users" style={{ textDecoration: 'none' }}>Пользователи</Link>
-          )}
-          <span className="muted">
-            {user.name} · {ROLE_LABELS[user.role] || user.role}
-          </span>
-          <button className="btn-secondary btn-sm" onClick={handleLogout}>Выход</button>
-        </div>
+        {isProjects && wide && (
+          <a href={PORTAL_URL} className="home-link" style={{
+            position: 'absolute',
+            left: 20,
+            top: '50%',
+            transform: 'translateY(-50%)'
+          }}>← На главную</a>
+        )}
       </nav>
       {children}
     </div>
