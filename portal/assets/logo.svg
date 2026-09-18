@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" width="200" height="48" role="img" aria-label="Bot Atelier">
+  <rect x="4" y="8" width="32" height="32" rx="9" fill="#3498db"/>
+  <g fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 32V19l8-5 8 5v13"/>
+    <path d="M17 32v-6h6v6"/>
+  </g>
+  <text x="48" y="31" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="700" fill="#111827">Bot Atelier</text>
+</svg>
