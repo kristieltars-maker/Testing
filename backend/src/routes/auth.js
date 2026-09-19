@@ -18,8 +18,6 @@ const loginLimiter = rateLimit({
 router.post('/login', loginLimiter, (req, res) => {
   const { email, password } = req.body;
 
-  console.log('[login debug] body:', req.body, 'email:', email, 'password length:', password?.length);
-
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password required' });
   }
@@ -28,7 +26,6 @@ router.post('/login', loginLimiter, (req, res) => {
   const result = db.exec('SELECT * FROM users WHERE email = ?', [email]);
 
   if (result.length === 0 || result[0].values.length === 0) {
-    console.log('[login debug] user not found');
     return res.status(401).json({ error: 'Invalid credentials' });
   }
 
@@ -36,8 +33,6 @@ router.post('/login', loginLimiter, (req, res) => {
   const row = result[0].values[0];
   const user = {};
   columns.forEach((col, i) => { user[col] = row[i]; });
-
-  console.log('[login debug] stored hash:', user.password_hash, 'compare:', bcrypt.compareSync(password, user.password_hash));
 
   if (!bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'Invalid credentials' });
