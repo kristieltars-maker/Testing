@@ -11,8 +11,8 @@ tools:
 permission:
   edit:
     "*": deny
-    "AGENTS.md": allow
-    ".opencode/architecture/*.md": allow
+    "**/AGENTS.md": allow
+    "**/.opencode/architecture/*.md": allow
 ---
 Ты — архитектор экосистемы. Проект развивается как набор модулей
 (подсистем), каждый добавляется поверх общего каркаса: общие пользователи,

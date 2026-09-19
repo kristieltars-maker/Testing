@@ -13,7 +13,7 @@ tools:
 permission:
   edit:
     "*": deny
-    ".opencode/plans/*.md": allow
+    "**/.opencode/plans/*.md": allow
 ---
 Ты — архитектор-планировщик. На основе задачи от пользователя и находок агента
 explorer ты пишешь ПОЛНЫЙ план реализации в файл .opencode/plans/<имя-фичи>.md.

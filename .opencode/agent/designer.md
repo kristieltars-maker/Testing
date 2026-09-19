@@ -11,7 +11,7 @@ tools:
 permission:
   edit:
     "*": deny
-    ".opencode/design/*.md": allow
+    "**/.opencode/design/*.md": allow
 ---
 Ты — UX/UI-дизайнер. Тебе дают описание модуля или фичи (из плана
 или напрямую от пользователя) и находки architect/explorer о существующих
