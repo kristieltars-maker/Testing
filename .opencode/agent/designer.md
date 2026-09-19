@@ -1,6 +1,7 @@
 ---
 description: Проектирует UX/UI нового модуля или фичи до начала реализации. Пишет текстовые wireframe-описания экранов, не пишет код.
 mode: subagent
+model: opencode-go/glm-5.3-flash
 tools:
   write: true
   edit: true

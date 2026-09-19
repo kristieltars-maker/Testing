@@ -1,6 +1,7 @@
 ---
 description: Пишет и прогоняет тесты для реализованного кода, ищет баги до финального ревью. Может запускать тесты, но не пишет продуктовый код.
 mode: subagent
+model: opencode-go/glm-5.3-flash
 tools:
   write: true
   edit: true

@@ -1,6 +1,7 @@
 ---
 description: Только исследует код, ничего не меняет. Используй перед планированием любой новой фичи.
 mode: subagent
+model: opencode-go/glm-5.3-flash
 tools:
   write: false
   edit: false

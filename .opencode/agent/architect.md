@@ -1,6 +1,7 @@
 ---
 description: Следит за целостностью архитектуры экосистемы при добавлении новых модулей/подсистем. Не пишет код.
 mode: subagent
+model: opencode-go/glm-5.3-flash
 tools:
   write: true
   edit: true

@@ -1,6 +1,7 @@
 ---
 description: Сверяет реализованный код с планом, ищет несоответствия и непокрытые edge cases. Только читает.
 mode: subagent
+model: opencode-go/glm-5.3-flash
 tools:
   write: false
   edit: false
