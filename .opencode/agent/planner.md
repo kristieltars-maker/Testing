@@ -17,6 +17,10 @@ permission:
     "**/.opencode/plans/*.md": allow
     "root/testing-bots/.opencode/plans/*.md": allow
     "srv/testing-bots/.opencode/plans/*.md": allow
+    "docs/*.md": allow
+    "**/docs/*.md": allow
+    "root/testing-bots/docs/*.md": allow
+    "srv/testing-bots/docs/*.md": allow
 ---
 Ты — архитектор-планировщик. На основе задачи от пользователя и находок агента
 explorer ты пишешь ПОЛНЫЙ план реализации в файл .opencode/plans/<имя-фичи>.md.
