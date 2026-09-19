@@ -15,6 +15,8 @@ permission:
     "architect": allow
     "designer": allow
     "qa": allow
+    "designer": allow
+    "qa": allow
     "ui-polish-sol": allow
 ---
 Ты — оркестратор процесса разработки. Ты сам не пишешь и не редактируешь код.
