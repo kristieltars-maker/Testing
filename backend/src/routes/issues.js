@@ -222,6 +222,11 @@ router.get('/:id', (req, res) => {
   const messages = rowsToObjects(messagesResult);
   const attachments = rowsToObjects(attachmentsResult);
 
+  for (const att of attachments) {
+    const absolute = join(__dirname, '..', att.file_path);
+    att.missing = !existsSync(absolute);
+  }
+
   const attachmentsMap = {};
   for (const att of attachments) {
     if (!attachmentsMap[att.message_id]) attachmentsMap[att.message_id] = [];

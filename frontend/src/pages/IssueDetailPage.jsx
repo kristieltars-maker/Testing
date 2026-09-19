@@ -35,6 +35,7 @@ export default function IssueDetailPage() {
   const [editMsgText, setEditMsgText] = useState('');
   const [editMsgFiles, setEditMsgFiles] = useState([]);
   const [editMsgRemove, setEditMsgRemove] = useState([]);
+  const [brokenAttachments, setBrokenAttachments] = useState(new Set());
   const [sidebarWidth, setSidebarWidth] = useState(() => Number(localStorage.getItem('issueSidebarWidth')) || 340);
   const [composerH, setComposerH] = useState(() => Number(localStorage.getItem('issueComposerH2')) || 38);
   const bottomRef = useRef(null);
@@ -329,22 +330,39 @@ export default function IssueDetailPage() {
                           const removed = editingMessageId === msg.id && editMsgRemove.includes(att.id);
                           return (
                             <div key={att.id} style={{ position: 'relative', maxWidth: '100%' }}>
-                              <img
-                                src={`/${att.file_path}`}
-                                alt={att.file_name}
-                                title={editingMessageId === msg.id ? '' : `${att.file_name} — нажмите для увеличения`}
-                                style={{
-                                  maxWidth: '100%', maxHeight: 420, borderRadius: 8,
-                                  cursor: editingMessageId === msg.id ? 'default' : 'zoom-in',
-                                  border: '1px solid #e5e7eb', display: 'block',
-                                  opacity: removed ? 0.3 : 1
-                                }}
-                                onClick={() => {
-                                  if (editingMessageId !== msg.id) {
-                                    setLightbox({ url: `/${att.file_path}`, text: msg.text, author: msg.author_name, created_at: msg.created_at });
-                                  }
-                                }}
-                              />
+                              {att.missing || brokenAttachments.has(att.id) ? (
+                                <div
+                                  title={att.file_name}
+                                  style={{
+                                    maxWidth: '100%', padding: '16px 20px', borderRadius: 8,
+                                    border: '1px solid #e5e7eb', background: '#f9fafb',
+                                    color: '#6b7280', fontSize: 13, textAlign: 'center',
+                                    opacity: removed ? 0.3 : 1
+                                  }}
+                                >
+                                  <div style={{ fontSize: 24, marginBottom: 6 }}>🖼️</div>
+                                  <div>Файл не найден на сервере</div>
+                                  <div style={{ fontSize: 11, marginTop: 4, color: '#9ca3af' }}>{att.file_name}</div>
+                                </div>
+                              ) : (
+                                <img
+                                  src={`/${att.file_path}`}
+                                  alt={att.file_name}
+                                  title={editingMessageId === msg.id ? '' : `${att.file_name} — нажмите для увеличения`}
+                                  style={{
+                                    maxWidth: '100%', maxHeight: 420, borderRadius: 8,
+                                    cursor: editingMessageId === msg.id ? 'default' : 'zoom-in',
+                                    border: '1px solid #e5e7eb', display: 'block',
+                                    opacity: removed ? 0.3 : 1
+                                  }}
+                                  onError={() => setBrokenAttachments(prev => new Set(prev).add(att.id))}
+                                  onClick={() => {
+                                    if (editingMessageId !== msg.id) {
+                                      setLightbox({ url: `/${att.file_path}`, text: msg.text, author: msg.author_name, created_at: msg.created_at });
+                                    }
+                                  }}
+                                />
+                              )}
                               {editingMessageId === msg.id && (
                                 <button
                                   type="button"
