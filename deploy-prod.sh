@@ -22,13 +22,8 @@ echo "deploying $HEAD"
 cd "$SRC/frontend"
 npm run build
 
-# 2) backup prod uploads before any source sync, keep last 10 backups
-mkdir -p /var/backups/testing-bots-uploads
-UPLOADS_BACKUP="/var/backups/testing-bots-uploads/uploads-$(date +%Y%m%d-%H%M%S).tar.gz"
-if [ -d "$DST/backend/src/uploads" ]; then
-  tar -czf "$UPLOADS_BACKUP" -C "$DST/backend/src" uploads 2>/dev/null || true
-fi
-ls -t /var/backups/testing-bots-uploads/uploads-*.tar.gz 2>/dev/null | tail -n +11 | xargs -r rm -f
+# 2) full backup (uploads + database) before any source sync
+/usr/local/bin/testing-bots-backup.sh || true
 
 # 3) sync backend source (keep prod uploads, data, env, node_modules)
 rsync -a --delete --exclude 'uploads' --exclude 'node_modules' "$SRC/backend/src/" "$DST/backend/src/"
