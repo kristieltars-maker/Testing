@@ -26,6 +26,8 @@ npm run build
 rsync -a --delete --exclude 'uploads' --exclude 'node_modules' "$SRC/backend/src/" "$DST/backend/src/"
 rsync -a "$SRC/backend/package.json" "$DST/backend/package.json"
 [ -f "$SRC/backend/package-lock.json" ] && rsync -a "$SRC/backend/package-lock.json" "$DST/backend/package-lock.json" || true
+# Keep PM2 ecosystem config in sync; production env/secrets live in DST/.env.production
+rsync -a "$SRC/backend/ecosystem.config.cjs" "$DST/backend/ecosystem.config.cjs"
 
 # 3) sync built frontend
 rsync -a --delete "$SRC/frontend/dist/" "$DST/frontend/dist/"
@@ -35,8 +37,11 @@ cd "$DST/backend"
 npm install --omit=dev
 npm run migrate
 
-# 5) restart app
-pm2 restart testing-bots --update-env
+# 5) restart app with production env/secrets from DST
+set -a
+[ -f "$DST/backend/.env.production" ] && source "$DST/backend/.env.production"
+set +a
+pm2 startOrRestart "$DST/backend/ecosystem.config.cjs" --env production
 pm2 save
 
 echo "$HEAD" > "$LAST"

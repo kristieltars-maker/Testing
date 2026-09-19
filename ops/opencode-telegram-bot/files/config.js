@@ -131,9 +131,9 @@ export function buildTelegramConfig() {
     }
     return {
         token: getEnvVar("TELEGRAM_BOT_TOKEN"),
-        allowedUserId: parseInt(getEnvVar("TELEGRAM_ALLOWED_USER_ID", false)?.split(",")[0] ?? "", 10),
+        allowedUserId: (getEnvVar("TELEGRAM_ALLOWED_USER_ID", false) || "").split(/[,\s]+/).map((s) => parseInt(s, 10)).filter((n) => Number.isInteger(n))[0],
         allowedUserIds: (getEnvVar("TELEGRAM_ALLOWED_USER_ID", false) || "")
-            .split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isInteger(n)),
+            .split(/[,\s]+/).map((s) => parseInt(s, 10)).filter((n) => Number.isInteger(n)),
         proxyUrl,
         apiRoot,
         proxySecret,
