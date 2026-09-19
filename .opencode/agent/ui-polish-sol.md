@@ -1,7 +1,7 @@
 ---
 description: Визуальная доводка готовых экранов на модели GPT-5.6 Sol — исправление отступов, цветов, типографики согласно DESIGN.md и приложенным референс-скриншотам. Работает только с существующими компонентами, не меняет бизнес-логику.
 mode: subagent
-model: openai/gpt-5.6-sol
+model: opencode-go/glm-5.3-flash
 tools:
   write: true
   edit: true
