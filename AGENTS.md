@@ -330,3 +330,12 @@ Rules:
 - Work ONLY in this repository (`/srv/testing-bots`). Never edit `/opt/testing-bots` directly.
 - Always commit at the end of a task. Uncommitted work is NOT deployed.
 - Do not run `git push` unless explicitly asked.
+
+---
+
+## Данные и загрузки (КРИТИЧНО)
+
+- Скриншоты вложений лежат в `backend/src/uploads/` и **не хранятся в git** — их нельзя восстановить из репозитория.
+- **ЗАПРЕЩЕНО** выполнять `rsync --delete` (или любое копирование с удалением) по каталогу `backend/src` без исключения `uploads/`. Это стирает загрузки на проде.
+- Перед любыми массовыми операциями с `backend/src` сначала делай резервную копию `backend/src/uploads`.
+- Деплой на прод выполняет только `deploy-prod.sh` (в нём `uploads/` исключён). Никаких ручных rsync-деплоев.
